@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lab 1 – Cahaya Merambat Lurus</title><link rel="stylesheet" href="lab-core.css"></head>
+<body><div id="app"></div>
+<script src="ai-config.js"></script><script src="lab-core.js"></script><script src="lab-icons.js"></script>
+<script>
+(function(){
+const L=LabKit,I=L.icons,C=L.clamp;
+const W=760,H=380,TB=322,FX=190,CX=[270,370,470],CW=46,HY=105,BX=556,BW=44,BH=92,SX=668,SW=36;
+const DEF=()=>({ray:180,k:[180,180,180],book:275});
+
+function scene(host,o){
+  const id=L.uid('s1'),inter=o.interactive;
+  host.innerHTML=`<svg viewBox="0 0 ${W} ${H}" id="${id}" role="img" aria-label="Senter, tiga karton berlubang, buku, dan layar">
+  <defs><linearGradient id="${id}w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#13213f"/><stop offset="1" stop-color="#1f3a63"/></linearGradient>
+  <linearGradient id="${id}b" x1="0" x2="1"><stop offset="0" stop-color="#fff6c2"/><stop offset="1" stop-color="#ffd23f"/></linearGradient>
+  <radialGradient id="${id}g"><stop offset="0" stop-color="#fff7c4"/><stop offset="1" stop-color="#ffd23f" stop-opacity="0"/></radialGradient>
+  <filter id="${id}f" x="-10%" y="-300%" width="120%" height="700%"><feGaussianBlur stdDeviation="4"/></filter></defs>
+  <rect width="${W}" height="${TB}" fill="url(#${id}w)"/>
+  <path d="M0 80H760M0 160H760M0 240H760M190 0V322M380 0V322M570 0V322" stroke="#8fb4ff" stroke-opacity=".07"/>
+  ${CX.map(x=>`<rect x="${x-3}" y="62" width="6" height="${TB-62}" fill="#6f7c92"/>`).join('')}
+  <g transform="translate(${SX},70)">${I.screen(SW,230,22)}</g>
+  <ellipse id="${id}sg" cx="${SX+SW/2}" cy="180" rx="17" ry="40" fill="url(#${id}g)" opacity="0"/>
+  <g id="${id}sh" opacity="0"><rect id="${id}shr" x="${BX+BW}" y="100" width="${SX-BX-BW}" height="92" fill="#000" opacity=".42"/><text class="lbl" x="${(BX+BW+SX)/2}" y="0" text-anchor="middle" id="${id}sht">bayangan</text></g>
+  ${CX.map((x,i)=>`<g id="${id}c${i}" class="drag">${I.cardboard(CW,210,HY,11,15)}</g>`).join('')}
+  <g id="${id}tb">${I.table(W,TB)}</g>
+  <g id="${id}bk" class="drag">${I.book(BW,BH)}</g>
+  <g id="${id}bm" opacity="0"><polygon id="${id}bg" fill="url(#${id}b)"/><polygon id="${id}bgl" fill="#ffd23f" opacity=".5" filter="url(#${id}f)"/></g>
+  <g id="${id}pt"></g>
+  <rect id="${id}st" x="${FX-90}" width="6" fill="#6f7c92"/>
+  <g id="${id}fl" class="drag">${I.flashlight(true)}</g>
+  ${CX.map((x,i)=>`<text class="lbl" x="${x}" y="40" text-anchor="middle">Karton ${i+1}</text>`).join('')}
+  <text class="lbl" x="${FX-62}" y="344" fill="#fff" style="fill:#fff6dd">Senter</text>
+  <text class="lbl" x="${BX+BW/2}" y="344" text-anchor="middle" style="fill:#fff6dd">Buku</text>
+  <text class="lbl" x="${SX+SW/2}" y="54" text-anchor="middle">Layar</text>
+  <g id="${id}gr"></g></svg>`;
+  const svg=host.querySelector('svg'),$=s=>svg.querySelector('#'+id+s);
+  let st=DEF(),rev=false;
+  function calc(){
+    let end=SX,by=null;
+    for(let i=0;i<3;i++)if(Math.abs(st.k[i]-st.ray)>10){end=CX[i]-CW/2;by='k'+(i+1);break;}
+    if(!by&&Math.abs(st.book-st.ray)<BH/2+3){end=BX;by='book';}
+    return {end:end,by:by};
+  }
+  function render(){
+    $('fl').setAttribute('transform',`translate(${FX},${st.ray})`);
+    $('st').setAttribute('y',st.ray+18);$('st').setAttribute('height',TB-st.ray-18);
+    [0,1,2].forEach(i=>$('c'+i).setAttribute('transform',`translate(${CX[i]-CW/2},${st.k[i]-HY})`));
+    $('bk').setAttribute('transform',`translate(${BX},${st.book-BH/2})`);
+    if(inter)$('gr').innerHTML=L.grip(FX-100,st.ray-34,'y')+CX.map((x,i)=>L.grip(x,st.k[i]-HY+14,'y')).join('')+L.grip(BX+BW/2,st.book-BH/2-16,'y');
+    beam();
+  }
+  function beam(){
+    const g=$('bm'),pt=$('pt'),shg=$('sh'),sg=$('sg');
+    if(!rev){g.setAttribute('opacity',0);pt.innerHTML='';shg.setAttribute('opacity',0);sg.setAttribute('opacity',0);return;}
+    const r=calc(),y=st.ray,x0=FX+6;
+    g.setAttribute('opacity',1);
+    $('bg').setAttribute('points',`${x0},${y-4} ${r.end},${y-4} ${r.end},${y+4} ${x0},${y+4}`);
+    $('bgl').setAttribute('points',`${x0},${y-8} ${r.end},${y-8} ${r.end},${y+8} ${x0},${y+8}`);
+    let p='';
+    CX.forEach((x,i)=>{const left=x-CW/2;if(r.end>left+CW)p+=`<circle cx="${x}" cy="${y}" r="13" fill="url(#${id}g)"/>`;});
+    if(r.by&&r.by[0]==='k')p+=`<circle cx="${r.end}" cy="${y}" r="16" fill="url(#${id}g)"/>`;
+    if(r.by==='book')p+=`<circle cx="${r.end}" cy="${y}" r="16" fill="url(#${id}g)"/>`;
+    pt.innerHTML=p;
+    if(r.by==='book'){shg.setAttribute('opacity',1);$('shr').setAttribute('y',st.book-BH/2);$('shr').setAttribute('height',BH);$('sht').setAttribute('y',st.book+4);}else shg.setAttribute('opacity',0);
+    sg.setAttribute('opacity',r.by?0:1);sg.setAttribute('cy',y);
+  }
+  if(inter){
+    const ch=()=>{render();o.onChange&&o.onChange();};
+    L.drag($('fl'),svg,{axis:'y',min:120,max:250,get:()=>st.ray,set:v=>{st.ray=v;ch();}});
+    [0,1,2].forEach(i=>L.drag($('c'+i),svg,{axis:'y',min:112,max:252,get:()=>st.k[i],set:v=>{st.k[i]=v;ch();}}));
+    L.drag($('bk'),svg,{axis:'y',min:100,max:275,get:()=>st.book,set:v=>{st.book=v;ch();}});
+  }
+  render();
+  return {
+    setState(s){st={ray:s.ray,k:s.k.slice(),book:s.book};render();},
+    getState(){return st;},
+    reset(){st=DEF();rev=false;render();},
+    reveal(b){rev=b;beam();},
+    test(){
+      rev=true;beam();const r=calc();
+      const aligned=st.k.every(v=>Math.abs(v-st.ray)<=10);
+      const key=r.by?'tidak':'ya';
+      let t;
+      if(!r.by)t='Cahaya melewati ketiga lubang yang segaris dan sampai di layar. Cahaya merambat lurus.';
+      else if(r.by==='book')t='Cahaya terhalang buku dan tidak dapat menembusnya, sehingga terbentuk bayangan dan layar gelap.';
+      else t='Cahaya berhenti di Karton '+r.by[1]+' karena lubangnya tidak segaris dengan sinar. Cahaya hanya merambat lurus.';
+      return {id:(r.by||'lurus'),key:key,text:t,cells:[aligned?'Segaris':'Tidak segaris',r.by==='book'?'Menghalangi':'Tidak menghalangi',key==='ya'?'Layar terang':'Layar gelap']};
+    }
+  };
+}
+
+const heroArt=`<svg viewBox="0 0 400 300"><defs><linearGradient id="hb" x1="0" x2="1"><stop offset="0" stop-color="#ffe9a0" stop-opacity=".9"/><stop offset="1" stop-color="#ffe9a0" stop-opacity="0"/></linearGradient></defs>
+<polygon points="200,120 400,60 400,200" fill="url(#hb)" opacity=".7"/>
+<g transform="translate(235,160) rotate(-18) scale(1.45)">${I.flashlight(true)}</g></svg>`;
+
+LabKit.create({
+  key:'lab1',brand:'Misi Penjelajah Cahaya',kicker:'Petualangan IPA · Kelas V',title:'Misi Penjelajah Cahaya',
+  story:'Sebuah cahaya misterius padam di laboratorium! Selidiki jalurnya, kumpulkan bukti, dan selamatkan percobaan.',heroArt:heroArt,
+  mapKicker:'Modul B · Petualangan',
+  lab:{kicker:'Modul A · Eksperimen virtual',title:'Laboratorium jalur cahaya',
+    desc:'Seret senter, ketiga karton, buku, atau layar. Cahaya harus melewati setiap lubang tanpa mengenai penghalang agar sampai ke layar.',
+    tip:'Tip: seret benda yang bertanda kuning. Untuk mencoba susunan awal, buku berada di bawah sinar.',
+    predict:{q:'Prediksimu: apakah layar akan bercahaya?',opts:[['ya','Ya, layar bercahaya'],['tidak','Tidak, layar gelap']]},
+    columns:['Lubang','Buku','Hasil pada layar'],
+    report:[{"q": "Ceritakan satu keadaan saat cahaya dari senter sampai ke layar. Bagaimana susunan karton dan lubangnya?", "kw": ["segaris", "sejajar", "satu garis", "lurus", "sama tinggi"], "need": 1, "model": "Cahaya sampai ke layar ketika ketiga lubang karton segaris (sama tinggi) dengan senter dan tidak ada benda yang menghalangi."}, {"q": "Ceritakan satu keadaan saat cahaya tidak sampai ke layar (misalnya lubang karton bergeser atau buku diletakkan di jalur cahaya). Apa yang kamu lihat?", "kw": ["terhalang", "berhenti", "gelap", "tidak sampai", "menghalangi", "tidak tembus", "bayangan", "bergeser"], "need": 1, "model": "Salah satu keadaan sudah cukup. Lubang karton bergeser: cahaya terhalang dan tidak sampai ke layar sehingga layar gelap. Atau buku di jalur cahaya: cahaya terhalang, layar gelap, dan di belakang buku terbentuk bayangan."}, {"q": "Apa kesimpulanmu tentang cara cahaya merambat? (Menjawab satu hal saja sudah cukup.)", "kw": ["lurus"], "need": 1, "model": "Cahaya merambat lurus (menurut garis lurus). Boleh juga menyebut bahwa cahaya tidak dapat menembus benda gelap."}],minObs:0},
+  createScene:scene,
+  missions:[
+   {id:'m1',poin:["[inti] Cahaya sampai ke layar karena ketiga lubang karton segaris (sama tinggi) dengan senter dan tidak ada penghalang","[inti] Alasan: cahaya merambat lurus sehingga dapat melewati lubang-lubang yang segaris"],essay:'Apakah cahaya dari senter sampai ke layar? Jelaskan alasannya.',title:'Detektif Cahaya',short:'Amati, uji, dan jelaskan.',badge:'Penjelajah Cahaya',skills:['Memprediksi hasil','Menggunakan bukti'],
+    story:'Senter menyala dan tiga karton berlubang berderet rapi. Apakah cahayanya sampai ke layar?',
+    preset:{ray:180,k:[180,180,180],book:275},pQ:'Prediksimu: apakah layar akan bercahaya?',pOpts:[['ya','Ya, layar bercahaya'],['tidak','Tidak, layar gelap']],
+    q:'Bukti mana yang paling tepat menjelaskan hasilnya?',
+    choices:[['Cahaya sampai ke layar karena ketiga lubang segaris dan cahaya merambat lurus.',true],['Cahaya membelok mengikuti lubang karton.',false,'Cahaya tidak membelok sendiri. Lihat lagi: apakah lubangnya berada pada ketinggian yang sama?'],['Layar menyala sendiri tanpa senter.',false,'Layar tidak menyala sendiri. Cahaya berasal dari senter.'],['Karton memantulkan cahaya ke layar.',false,'Karton justru menghalangi cahaya. Cahaya lewat melalui lubangnya.']],
+    reasonQ:'Tulis alasanmu (kenapa cahaya sampai ke layar?):',kw:['lurus','segaris','sejajar','satu garis'],need:1,
+    hints:['Lihat jalur sinar dari senter sampai layar.','Apakah ketiga lubang berada pada ketinggian yang sama dengan senter?','Cahaya merambat menurut garis …?'],
+    explain:'Cahaya merambat lurus. Karena ketiga lubang segaris, cahaya dapat lewat sampai ke layar.'},
+   {id:'m2',poin:["[inti] Cahaya berhenti/terhalang di Karton 2 karena lubang Karton 2 bergeser atau tidak segaris dengan senter dan lubang lain","[inti] Cahaya merambat lurus sehingga tidak bisa membelok mengikuti lubang yang bergeser"],essay:'Mengapa cahaya berhenti di Karton 2? Jelaskan alasannya.',title:'Tiga Lubang Rahasia',short:'Cari lubang yang bandel.',badge:'Pemburu Garis Lurus',skills:['Menemukan kesalahan percobaan','Hubungan variabel dan hasil'],
+    story:'Kali ini layar tetap gelap. Salah satu karton berlubang sedikit bergeser. Temukan penyebabnya!',
+    preset:{ray:170,k:[170,215,170],book:275},pQ:'Prediksimu: apakah layar akan bercahaya?',pOpts:[['ya','Ya, layar bercahaya'],['tidak','Tidak, layar gelap']],
+    q:'Mengapa cahaya berhenti di Karton 2?',
+    choices:[['Lubang Karton 2 tidak segaris dengan lubang lain, dan cahaya merambat lurus sehingga terhalang.',true],['Senter kehabisan baterai.',false,'Senter menyala, buktinya cahaya sampai ke Karton 1.'],['Cahaya dapat membelok mengikuti lubang.',false,'Cahaya tidak membelok. Perhatikan letak lubang Karton 2.'],['Layarnya terlalu kecil.',false,'Cahaya sudah berhenti sebelum sampai ke layar.']],
+    reasonQ:'Tulis alasanmu:',kw:['lurus','segaris','sejajar','tidak sama','bergeser','terhalang'],need:1,
+    hints:['Bandingkan ketinggian ketiga lubang.','Karton mana yang lubangnya lebih rendah?','Cahaya yang merambat lurus tidak bisa membelok ke lubang yang bergeser.'],
+    explain:'Cahaya merambat lurus. Lubang yang bergeser tidak dilalui cahaya, sehingga cahaya terhalang karton.'},
+   {id:'m3',poin:["[inti] Bayangan terbentuk karena buku (benda gelap/tidak bening) menghalangi cahaya dan cahaya tidak dapat menembusnya","[pendukung] Daerah di belakang buku tidak terkena cahaya sehingga gelap"],essay:'Mengapa ada daerah gelap (bayangan) di belakang buku? Jelaskan alasannya.',title:'Misteri Bayangan',short:'Mengapa ada bayangan?',badge:'Detektif Bayangan',skills:['Hubungan variabel dan hasil','Memilih informasi relevan'],
+    story:'Seseorang menaruh buku di jalur cahaya. Layar gelap dan ada daerah gelap di belakang buku.',
+    preset:{ray:180,k:[180,180,180],book:180},pQ:'Prediksimu: apakah layar akan bercahaya?',pOpts:[['ya','Ya, layar bercahaya'],['tidak','Tidak, layar gelap']],
+    q:'Mengapa terbentuk bayangan di belakang buku?',
+    choices:[['Buku tidak dapat ditembus cahaya, sehingga cahaya terhalang dan terbentuk bayangan.',true],['Buku menyerap semua lubang karton.',false,'Lubang karton tidak berubah. Perhatikan buku di jalur sinar.'],['Cahaya berubah menjadi gelap sendiri.',false,'Cahaya tidak berubah menjadi gelap; ia terhalang benda.'],['Layar bergerak menjauh.',false,'Layar tidak bergerak.']],
+    reasonQ:'Tulis alasanmu:',kw:['terhalang','tidak tembus','tidak dapat menembus','menghalangi','gelap'],need:1,
+    hints:['Apa yang ada di jalur cahaya?','Apakah buku dapat dilewati cahaya?','Daerah yang tidak terkena cahaya disebut …?'],
+    explain:'Benda gelap seperti buku tidak meneruskan cahaya. Cahaya terhalang sehingga terbentuk bayangan.'},
+   {id:'m4',poin:["[inti] Naikkan atau geser Karton 1 sampai lubangnya segaris (sama tinggi) dengan senter dan lubang karton lain","[inti] Alasan: cahaya merambat lurus"],essay:'Karton 1 terlalu rendah, jadi layar gelap. Apa yang harus kamu lakukan supaya cahaya sampai ke layar? Jelaskan alasannya.',title:'Perbaiki Jalur Cahaya',short:'Pilih cara memperbaiki.',badge:'Teknisi Optik',skills:['Menemukan kesalahan percobaan','Mengidentifikasi masalah'],
+    story:'Layar kembali gelap. Karton 1 terlalu rendah. Bagaimana cara memperbaikinya?',
+    preset:{ray:150,k:[215,150,150],book:275},fixed:{ray:150,k:[150,150,150],book:275},pQ:'Prediksimu: apakah layar akan bercahaya?',pOpts:[['ya','Ya, layar bercahaya'],['tidak','Tidak, layar gelap']],
+    q:'Langkah perbaikan mana yang tepat?',
+    choices:[['Naikkan Karton 1 sampai lubangnya segaris dengan senter dan lubang lain.',true],['Tambah satu karton lagi di depan layar.',false,'Menambah karton justru menambah penghalang.'],['Ganti dengan senter yang lebih terang.',false,'Senter sudah cukup terang; masalahnya letak lubang.'],['Besarkan layar saja.',false,'Cahaya sudah terhalang sebelum sampai ke layar.']],
+    reasonQ:'Tulis alasanmu:',kw:['segaris','sejajar','lurus','satu garis','naikkan'],need:1,
+    hints:['Karton mana yang menghalangi sinar?','Lubang itu perlu digeser ke arah mana?','Semua lubang harus berada pada satu garis lurus dengan senter.'],
+    explain:'Agar cahaya sampai ke layar, semua lubang harus segaris karena cahaya merambat lurus.'},
+   {id:'m5',poin:["[inti] Cahaya merambat lurus (menurut garis lurus)","[inti] Cahaya tidak dapat menembus benda gelap/penghalang sehingga terbentuk bayangan"],essay:'Dari tiga buktimu, apa kesimpulanmu tentang cara cahaya merambat dan benda yang tidak bisa ditembus cahaya?',title:'Selamatkan Laboratorium',short:'Tarik kesimpulan akhir.',badge:'Juara Laboratorium',skills:['Menggunakan bukti','Memilih informasi relevan','Memprediksi hasil'],
+    story:'Kamu sudah punya tiga bukti: lubang segaris → layar terang, lubang bergeser → layar gelap, buku di jalur → layar gelap. Rangkum menjadi satu kesimpulan.',
+    preset:{ray:180,k:[180,180,180],book:180},pQ:'Prediksimu: apakah layar akan bercahaya?',pOpts:[['ya','Ya, layar bercahaya'],['tidak','Tidak, layar gelap']],
+    q:'Kesimpulan mana yang paling tepat?',
+    choices:[['Cahaya merambat menurut garis lurus dan tidak dapat menembus benda gelap.',true],['Cahaya merambat membelok-belok mengikuti lubang.',false,'Buktimu menunjukkan lubang harus segaris, jadi cahaya tidak membelok.'],['Cahaya hanya bisa lewat lubang yang bulat.',false,'Bentuk lubang bukan penyebabnya; letaknya yang harus segaris.'],['Cahaya tidak punya arah rambat.',false,'Cahaya punya arah: lurus.']],
+    reasonQ:'Tulis kesimpulanmu:',kw:['lurus','terhalang','tidak tembus','menghalangi','gelap','segaris'],need:2,
+    hints:['Ingat bukti 1 dan 2: apa syarat cahaya sampai ke layar?','Ingat bukti 3: apa yang terjadi bila ada benda gelap?','Sebutkan dua hal: arah rambat dan benda penghalang.'],
+    explain:'Cahaya merambat lurus dan terhalang oleh benda gelap. Karena itu bayangan dapat terbentuk.'}
+  ]
+});
+})();
+</script></body></html>
