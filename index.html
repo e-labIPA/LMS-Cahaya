@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Masuk – Lab Cahaya</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<div class="login"><div class="lbox">
+  <div id="mas"></div>
+  <div class="lcard">
+    <h1 class="brandname" id="bn"></h1>
+    <p class="tag">Petualangan praktikum IPA tentang cahaya! 🔦</p>
+    <div class="roles">
+      <button type="button" class="role on" id="tS"><span>🎒</span>Murid</button>
+      <button type="button" class="role" id="tT"><span>👩‍🏫</span>Tutor</button>
+    </div>
+    <form id="fS">
+      <label for="nama">Siapa namamu?</label>
+      <input id="nama" placeholder="Tulis nama lengkapmu" required autocomplete="name">
+      <div class="row"><button class="btn green big block wiggle">Ayo Mulai! 🚀</button></div>
+    </form>
+    <form id="fT" class="hidden">
+      <label for="pw">Kata sandi tutor</label>
+      <input id="pw" type="password" required>
+      <p id="err" class="err"></p>
+      <div class="row" style="margin-top:6px"><button class="btn big block">Masuk sebagai Tutor</button></div>
+    </form>
+  </div>
+</div></div>
+<script src="app.js"></script><script src="deco.js"></script>
+<script>
+DECO.scenery();
+mas.innerHTML = DECO.mascot();
+/* huruf melompat bergantian */
+let i = 0; bn.innerHTML = [..."Lab "].map(c => `<span style="--i:${i++}">${c === " " ? "&nbsp;" : c}</span>`).join("") + "<b>" + [..."Cahaya"].map(c => `<span style="--i:${i++}">${c}</span>`).join("") + "</b>";
+const u = getUser();
+if (u) location.href = u.role === "tutor" ? "tutor.html" : "siswa.html";
+tS.onclick = () => { tS.classList.add("on"); tT.classList.remove("on"); fS.classList.remove("hidden"); fT.classList.add("hidden"); };
+tT.onclick = () => { tT.classList.add("on"); tS.classList.remove("on"); fT.classList.remove("hidden"); fS.classList.add("hidden"); };
+fS.onsubmit = e => { e.preventDefault(); save("lms_user", { role: "siswa", nama: nama.value.trim() }); location.href = "siswa.html"; };
+fT.onsubmit = e => {
+  e.preventDefault();
+  if (pw.value === CONFIG.PASSWORD_TUTOR) { save("lms_user", { role: "tutor", nama: "Tutor" }); location.href = "tutor.html"; }
+  else err.textContent = "Kata sandi salah, coba lagi ya.";
+};
+</script></body></html>

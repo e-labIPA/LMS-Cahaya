@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Beranda – Lab Cahaya</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<header class="appbar">
+  <a class="logo" href="siswa.html"><span id="lg"></span>Lab&nbsp;<b>Cahaya</b></a>
+  <div class="user"><div class="ava" id="ava"></div><span class="uname" id="hi"></span><button class="btn sec" style="padding:8px 16px" onclick="logout()">Keluar</button></div>
+</header>
+<main>
+  <section class="hello">
+    <div id="mas"></div>
+    <div class="bubble">
+      <h1>Halo, <em id="nm"></em>! 👋</h1>
+      <p>Aku Cahya! Yuk jadi <b>Penjelajah Cahaya</b>. Pilih satu petualangan di bawah, lalu kumpulkan bintang dan XP-mu!</p>
+      <div class="stat3">
+        <span class="pillstat">⭐ <b id="sStar">0</b> bintang</span>
+        <span class="pillstat">✨ <b id="sXp">0</b> XP</span>
+        <span class="pillstat">🏁 <b id="sDone">0</b>/5 tema</span>
+      </div>
+    </div>
+  </section>
+  <h2 class="sech">Pilih petualanganmu</h2>
+  <p class="sec-sub">Setiap tema punya 3 langkah: 🖼️ lihat gambar orientasi → 🧪 main virtual lab → 🎬 tonton video materi.</p>
+  <div class="cards" id="grid"></div>
+</main>
+<script src="app.js"></script><script src="deco.js"></script>
+<script>
+const u = getUser();
+if (!u || u.role !== "siswa") location.href = "index.html";
+DECO.scenery();
+lg.innerHTML = DECO.mascot();
+mas.innerHTML = DECO.mascot();
+hi.textContent = u.nama;
+nm.textContent = u.nama.split(" ")[0];
+ava.textContent = u.nama.trim().charAt(0).toUpperCase() || "?";
+
+const SUB = {
+  1: "Cahaya merambat lurus",
+  2: "Cahaya menembus benda bening",
+  3: "Cahaya dipantulkan",
+  4: "Cahaya dibiaskan",
+  5: "Cahaya diuraikan"
+};
+const prog = getProgress()[u.nama] || {};
+let stars = 0, xp = 0, selesai = 0;
+grid.innerHTML = TEMA.map((t, i) => {
+  const d = prog[t.id] || {}, p = pct(u.nama, t.id);
+  stars += (d.orientasi ? 1 : 0) + (d.lab ? 1 : 0) + (d.materi ? 1 : 0);
+  xp += d.xp || 0; if (p === 100) selesai++;
+  const dot = (k, ic, tx) => `<div class="dot ${d[k] ? "ok" : ""}"><i>${ic}</i>${tx}</div>`;
+  const label = p === 100 ? "Main Lagi! 🔁" : p > 0 ? "Lanjutkan! 🚀" : "Mainkan Sekarang! 🚀";
+  return `<a class="tcard ${p === 100 ? "done" : ""}" href="tema.html?id=${t.id}" style="animation-delay:${i * .12}s">
+    <div class="tart">${DECO.scene(t.id)}<span class="ipa">✏️ IPA</span><span class="num">${t.id}</span></div>
+    <div class="tbody">
+      <small>Tema ${t.id}</small>
+      <h3>${t.judul}</h3>
+      <div class="dots">${dot("orientasi", "🖼️", "Orientasi")}${dot("lab", "🧪", "Lab")}${dot("materi", "🎬", "Materi")}</div>
+      <div class="pbar"><i style="width:${p}%"></i></div>
+      <small>${p}% selesai</small>
+      <span class="btn green block">${label}</span>
+    </div></a>`;
+}).join("");
+DECO.count(sStar, stars, 900); DECO.count(sXp, xp, 1100); DECO.count(sDone, selesai, 700);
+</script></body></html>
