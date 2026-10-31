@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tema Praktikum – Lab Cahaya</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<header class="appbar">
+  <a class="btn yellow" style="padding:8px 18px" href="siswa.html">← Beranda</a>
+  <div class="user"><div class="ava" id="ava"></div><span class="uname" id="hi"></span></div>
+</header>
+<button class="fab prev" id="fPrev" aria-label="Langkah sebelumnya">‹</button>
+<button class="fab next" id="fNext" aria-label="Langkah berikutnya">›</button>
+<main>
+  <div class="ttl"><div class="tart" id="art"></div><div><small id="tn"></small><h1 id="judul"></h1></div></div>
+  <div class="stepper" id="stepper">
+    <button class="stp on" data-s="orientasi"><span class="sn"><span>1</span></span>🔍 Ayo Mencermati!</button>
+    <button class="stp" data-s="lab"><span class="sn"><span>2</span></span>🧪 Virtual Lab</button>
+  </div>
+  <div class="panel" id="panel"></div>
+</main>
+<script src="app.js"></script><script src="deco.js"></script><script src="gambar.js"></script><script src="ai-config.js"></script><script src="ai-tanya.js"></script>
+<script>
+const u = getUser();
+if (!u || u.role !== "siswa") location.href = "index.html";
+const id = +new URLSearchParams(location.search).get("id");
+const t = TEMA.find(x => x.id === id);
+if (!t) location.href = "siswa.html";
+DECO.scenery();
+hi.textContent = u.nama; ava.textContent = u.nama.trim().charAt(0).toUpperCase() || "?";
+art.innerHTML = DECO.scene(id); tn.textContent = "Tema " + id;
+judul.textContent = t.judul;
+const ORDER = ["orientasi", "lab"];
+const PEMANTIK = {
+  1: { q: ["Mengapa cahaya senter hanya terlihat jika lubang-lubang pada karton sejajar?", "Apa yang terjadi jika salah satu karton digeser?"],
+       model: ["Karena cahaya merambat lurus, jadi hanya bisa lewat jika semua lubang segaris.", "Cahaya terhalang karton dan tidak sampai ke layar, karena cahaya tidak bisa membelok."],
+       kw: [["lurus", "segaris", "sejajar"], ["terhalang", "tidak sampai", "berhenti", "gelap", "tidak tembus", "terblokir"]] },
+  2: { q: ["Mengapa kita dapat melihat benda di balik kaca bening, tetapi tidak dapat melihat benda di balik kayu?", "Apakah semua benda dapat ditembus cahaya?"],
+       model: ["Kaca bening meneruskan cahaya, sedangkan kayu menghalangi cahaya.", "Tidak. Benda bening meneruskan cahaya, benda buram meneruskan sebagian, dan benda gelap menghalangi cahaya."],
+       kw: [["meneruskan", "tembus", "menembus", "dilewati", "menghalangi", "terhalang"], ["tidak", "bukan", "sebagian"]] },
+  3: { q: ["Mengapa kucing dapat melihat bayangannya di cermin?", "Ke mana arah cahaya setelah mengenai permukaan cermin?"],
+       model: ["Karena cahaya dari kucing dipantulkan oleh cermin ke mata kucing.", "Cahaya dipantulkan (dibalikkan arahnya) oleh permukaan cermin."],
+       kw: [["pantul", "memantul", "dipantulkan"], ["pantul", "memantul", "dipantulkan", "balik", "kembali"]] },
+  4: { q: ["Mengapa pensil di dalam air terlihat bengkok?", "Apa yang menyebabkan cahaya berubah arah ketika melewati air?"],
+       model: ["Karena cahaya dibiaskan (dibelokkan) saat berpindah dari air ke udara.", "Cahaya berpindah dari satu zat bening ke zat bening lain (air ke udara) sehingga arahnya berubah. Ini disebut pembiasan."],
+       kw: [["bias", "dibiaskan", "dibelokkan", "membelok", "pembiasan"], ["bias", "dibiaskan", "pembiasan", "berpindah", "zat", "udara"]] },
+  5: { q: ["Mengapa cahaya putih yang mengenai prisma dapat terurai menjadi berbagai warna seperti pelangi?", "Apakah cahaya putih hanya terdiri dari satu warna?"],
+       model: ["Karena cahaya putih tersusun dari banyak warna, dan prisma menguraikannya.", "Tidak. Cahaya putih terdiri dari banyak warna (merah, jingga, kuning, hijau, biru, nila, ungu)."],
+       kw: [["warna", "urai", "terurai", "diuraikan", "dibiaskan"], ["tidak", "banyak", "bermacam", "berbagai", "pelangi"]] }
+};
+const PK = PEMANTIK[id];
+let cur = "orientasi";
+
+function isDone(k) { return ((getProgress()[u.nama] || {})[id] || {})[k]; }
+function doneBtn(key) {
+  const s = isDone(key);
+  return `<button class="btn green big" id="done" ${s ? "disabled" : ""}>${s ? "✅ Sudah selesai" : "✅ Aku sudah selesai!"}</button>`;
+}
+function bindDone(key) {
+  const b = document.getElementById("done");
+  b.onclick = () => {
+    setDone(u.nama, id, key); b.disabled = true; b.textContent = "✅ Sudah selesai";
+    const r = b.getBoundingClientRect();
+    DECO.confetti(r.left + r.width / 2, r.top, 46);
+    DECO.cheer(["Hebat sekali! 🎉", "Keren! Bintang baru ⭐", "Mantap, lanjut ya! 🚀"][ORDER.indexOf(key)]);
+    refreshSteps();
+  };
+}
+function frame(url, pesan, tv) {
+  const e = toEmbed(url);
+  if (!e) return `<div class="kosong">${DECO.mascot()}<b>Sebentar ya…</b><span>${pesan}</span></div>`;
+  return `<div class="${tv ? "tv" : ""}"><iframe class="frame" src="${e}" allowfullscreen allow="autoplay; encrypted-media; fullscreen"></iframe></div>
+          <p class="hint">Tidak tampil? <a href="${e}" target="_blank" rel="noopener">Buka di tab baru</a></p>`;
+}
+function refreshSteps() {
+  document.querySelectorAll(".stp").forEach(b => {
+    b.classList.toggle("on", b.dataset.s === cur);
+    b.classList.toggle("ok", !!isDone(b.dataset.s) && b.dataset.s !== cur);
+  });
+  const i = ORDER.indexOf(cur);
+  fPrev.disabled = i === 0; fNext.disabled = i === ORDER.length - 1;
+}
+
+function show(s) {
+  cur = s;
+  let h = "";
+  if (s === "orientasi") {
+    const sv = (((getProgress()[u.nama] || {})[id] || {}).pemantik) || {};
+    h = `<h3>🔍 Ayo Mencermati!</h3><p class="lead">Perhatikan gambarnya baik-baik. Lalu jawab pertanyaan di bawah dengan kalimatmu sendiri. Boleh singkat. Gurumu akan menanggapi jawabanmu.</p>
+         <div class="slideimg"><img src="${ORIENTASI_IMG[id]}" alt="Ayo Mencermati: ${t.judul}"></div>
+         <div class="pemantik">` + PK.q.map((q, i) => `<label class="pq" for="pk${i}">${i + 1}. ${q}</label>
+           <textarea id="pk${i}" placeholder="Tulis jawabanmu di sini...">${(sv.a && sv.a[i]) ? sv.a[i].replace(/</g, "&lt;") : ""}</textarea>`).join("") + `
+         <div class="row"><button class="btn gold big" id="kirimPk">💬 Kirim jawabanku</button></div><div id="fbPk"></div></div>`;
+  } else if (s === "lab") {
+    h = `<h3>🧪 Virtual Lab</h3><p class="lead">Ayo coba sendiri! Geser, klik, dan amati. Ikuti tombol di dalam lab dari kiri ke kanan.</p>
+         <div class="monitor"><div class="monbar"><i></i><i></i><i></i><span>Laboratorium Cahaya</span></div>
+         <iframe id="labFrame" class="frame lab" src="${t.lab}?u=${encodeURIComponent(u.nama)}" style="height:${window.__labH || 900}px" scrolling="no"></iframe></div>`;
+  }
+  const NEXT = { orientasi: "Lanjut ke Virtual Lab 🧪" }[s];
+  panel.style.animation = "none"; void panel.offsetWidth; panel.style.animation = "";
+  panel.innerHTML = h + `<div class="row">${doneBtn(s)}${NEXT ? `<button class="btn yellow big" id="nextStep">${NEXT} →</button>` : ""}</div>`;
+  bindDone(s);
+  if (s === "orientasi") bindPemantik();
+  const nb = document.getElementById("nextStep"); if (nb) nb.onclick = () => go(1);
+  refreshSteps();
+}
+const esc = x => String(x == null ? "" : x).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const ST = { tepat: ["ok", "✓ Tepat!"], sebagian: ["warn", "◐ Hampir tepat"], belum: ["no", "💡 Coba lagi ya"] };
+function kwHit(txt, kws) { txt = txt.toLowerCase(); return kws.some(k => txt.includes(k)); }
+function bindPemantik() {
+  const btn = document.getElementById("kirimPk"), fb = document.getElementById("fbPk");
+  const get = () => PK.q.map((_, i) => document.getElementById("pk" + i).value.trim());
+  const simpanDraf = () => { const p = getProgress(); p[u.nama] = p[u.nama] || {}; p[u.nama][id] = p[u.nama][id] || {}; p[u.nama][id].pemantik = { a: get() }; save("lms_progress", p); };
+  PK.q.forEach((_, i) => document.getElementById("pk" + i).oninput = simpanDraf);
+  btn.onclick = async () => {
+    const a = get();
+    if (!a.some(x => x.length >= 2)) { fb.innerHTML = `<div class="callout warn">Tulis dulu jawabanmu, boleh satu pertanyaan saja dulu.</div>`; return; }
+    simpanDraf(); btn.disabled = true;
+    fb.innerHTML = `<div class="callout info"><span class="spin"></span> Gurumu sedang membaca jawabanmu...</div>`;
+    const idx = a.map((x, i) => x.length >= 2 ? i : -1).filter(i => i >= 0);
+    let res = null, by = "", why = "";
+    if (window.PemantikAI && PemantikAI.available()) {
+      try { const r = await PemantikAI.nilai(t.judul, idx.map(i => ({ q: PK.q[i], model: PK.model[i], a: a[i] }))); res = r.hasil; by = r.by; }
+      catch (e) { console.warn("[AI] gagal:", e.message); why = e.message; }
+    }
+    let html = "";
+    idx.forEach((qi, k) => {
+      let st, msg;
+      if (res) { st = ST[res[k].status] ? res[k].status : "sebagian"; msg = res[k].umpan_balik; }
+      else {
+        const ok = kwHit(a[qi], PK.kw[qi]);
+        st = ok ? "tepat" : "belum";
+        msg = ok ? "Jawabanmu sudah mengarah ke yang tepat. Mantap! Contoh jawaban guru: " + PK.model[qi]
+                 : "Belum ada kata yang pas dengan pengamatanmu. Lihat gambar sekali lagi, lalu coba jawab lagi. Contoh jawaban guru: " + PK.model[qi];
+      }
+      html += `<div class="callout ${ST[st][0]}"><b>${ST[st][1]}</b> · ${qi + 1}. ${esc(PK.q[qi])}<br><span class="small">Jawabanmu: ${esc(a[qi])}</span><br>${esc(msg)}</div>`;
+    });
+    html += `<p class="small">${res ? "Ditanggapi oleh: " + esc(by) + ". " : (why ? "AI gagal tersambung (" + esc(String(why).slice(0, 160)) + "), jadi tanggapan ini dibuat sementara dengan kata kunci. " : "Kunci AI belum diisi, jadi tanggapan ini dibuat sementara dengan kata kunci. ")}Kamu boleh memperbaiki jawabanmu dan mengirim lagi.</p>`;
+    fb.innerHTML = html; btn.disabled = false;
+  };
+}
+function go(d) {
+  const i = ORDER.indexOf(cur) + d;
+  if (i >= 0 && i < ORDER.length) { show(ORDER[i]); window.scrollTo({ top: 0, behavior: "smooth" }); }
+}
+fPrev.onclick = () => go(-1); fNext.onclick = () => go(1);
+
+window.addEventListener("message", e => {
+  const d = e.data || {};
+  const f = document.getElementById("labFrame");
+  if (d.type === "lab-height" && f && e.source === f.contentWindow) { window.__labH = d.h + 4; f.style.height = window.__labH + "px"; }
+  if (d.type === "lab-top" && f && e.source === f.contentWindow) f.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (d.type === "lab-progress" && f && e.source === f.contentWindow) {
+    const p = getProgress(); p[u.nama] = p[u.nama] || {}; p[u.nama][id] = p[u.nama][id] || {};
+    const wasDone = p[u.nama][id].lab;
+    p[u.nama][id].xp = d.xp; p[u.nama][id].misi = d.done + "/" + d.total; p[u.nama][id].laporan = d.report;
+    if (d.complete) p[u.nama][id].lab = true;
+    save("lms_progress", p);
+    if (d.complete && !wasDone) { DECO.cheer("Lab selesai! Kamu hebat! 🏅"); DECO.confetti(innerWidth / 2, innerHeight / 3, 60); const b = document.getElementById("done"); if (b) { b.disabled = true; b.textContent = "✅ Sudah selesai"; } }
+    refreshSteps();
+  }
+});
+document.querySelectorAll(".stp").forEach(b => b.onclick = () => show(b.dataset.s));
+show("orientasi");
+</script></body></html>

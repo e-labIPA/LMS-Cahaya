@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dasbor Tutor – Lab Cahaya</title><link rel="stylesheet" href="admin.css"></head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand"><span id="lg"></span>Lab <b>Cahaya</b></div>
+    <div class="theme">☀️ <button class="sw" id="sw" aria-label="Mode gelap"></button> 🌙</div>
+    <div class="menu-t">Menu</div>
+    <button class="nv on" data-v="dash"><span class="i">📊</span>Dasbor</button>
+    <button class="nv" data-v="links"><span class="i">🎬</span>Link Materi</button>
+    <button class="nv" data-v="prog"><span class="i">🧑‍🎓</span>Progres Murid</button>
+    <button class="nv" data-v="pub"><span class="i">🚀</span>Publikasi</button>
+    <div class="sp"></div>
+    <div class="who"><div class="ava">T</div><div><b>Tutor</b><br><span style="color:var(--mute);font-size:.85rem">Operator</span></div></div>
+    <button class="nv" onclick="logout()"><span class="i">🚪</span>Keluar</button>
+  </aside>
+
+  <section class="content">
+    <!-- DASBOR -->
+    <div class="view" id="v-dash">
+      <div class="topline"><div><h1>📊 Dasbor</h1><p>Ringkasan praktikum cahaya dan kemajuan murid.</p></div>
+        <div class="acts"><button class="b" data-go="links">🎬 Atur Link Materi</button></div></div>
+      <div class="tiles" id="tiles"></div>
+      <div class="cols">
+        <div>
+          <div class="card"><h2>Rata-rata progres tiap tema</h2><p class="sub">Dihitung dari murid yang memakai browser ini.</p><div class="bars" id="bars"></div></div>
+        </div>
+        <div>
+          <div class="card"><h2>Virtual Lab</h2><p class="sub">Klik untuk mencoba sebagai pratinjau.</p><div class="tlist" id="labs"></div></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px"><h2>🤖 Uji Penilai AI</h2>
+        <p class="sub">Dipakai untuk menilai Laporan Pengamatan, esai Peta Misi, dan Ayo Mencermati!. Kunci diisi di <b>ai-config.js</b>.</p>
+        <div id="aiStat" class="sumrow"></div>
+        <label style="display:block;margin:10px 0 4px;font-weight:700">Contoh jawaban siswa (tentang: mengapa pensil di dalam air tampak bengkok?)</label>
+        <input id="aiTest" value="Karena cahaya dibelokkan saat pindah dari air ke udara" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line,#cfd8ea)">
+        <div class="acts" style="margin-top:10px"><button class="b" id="aiBtn">🧪 Tes penilai AI</button></div>
+        <div id="aiOut" style="margin-top:10px;line-height:1.5"></div>
+      </div>
+    </div>
+
+    <!-- LINK MATERI -->
+    <div class="view hidden" id="v-links">
+      <div class="topline"><div><h1>🎬 Pembuat Materi</h1><p>Pasang satu video Materi yang tampil di beranda siswa. Gambar Ayo Mencermati! ada di file gambar.js.</p></div>
+        <div class="acts"><button class="b" id="simpan">💾 Simpan Link</button><button class="b g" data-go="pub">🚀 Terbitkan ke Semua Murid</button><span id="ok" class="ok-t"></span></div></div>
+      <div class="cols">
+        <div>
+          <p class="sub" style="color:var(--mute);margin-top:0">Tempel link YouTube biasa, atau kode &lt;iframe&gt; dari Wordwall, Genially, LearningApps, dll.</p>
+          <div id="form"></div>
+        </div>
+        <div>
+          <div class="card"><h2>Ringkasan Materi</h2><p class="sub">Status pemasangan link.</p><div id="sum"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROGRES -->
+    <div class="view hidden" id="v-prog">
+      <div class="topline"><div><h1>🧑‍🎓 Progres Murid</h1><p>Data tersimpan di browser ini (per perangkat).</p></div>
+        <div class="acts"><button class="b r" id="reset">🗑 Hapus Data Progres</button></div></div>
+      <div class="card" style="overflow-x:auto"><table id="tbl"></table></div>
+    </div>
+
+    <!-- PUBLIKASI -->
+    <div class="view hidden" id="v-pub">
+      <div class="topline"><div><h1>🚀 Terbitkan Link</h1><p>Agar link tampil di semua murid, tempel kodenya ke <b>app.js</b>.</p></div></div>
+      <div class="card">
+        <ol class="steps">
+          <li><div>Klik <b>Salin kode</b> di bawah.</div></li>
+          <li><div>Buka file <b>app.js</b> di GitHub, lalu ganti baris <b>MATERI_URL</b> dengan kode yang disalin.</div></li>
+          <li><div>Klik <b>Commit changes</b>, tunggu 1–2 menit, lalu muat ulang websitenya (Ctrl+F5).</div></li>
+        </ol>
+        <textarea id="kode" class="code" readonly></textarea>
+        <div class="acts" style="margin-top:12px"><button class="b" id="salin">📋 Salin kode</button><span id="ok2" class="ok-t"></span></div>
+      </div>
+    </div>
+  </section>
+</div>
+<script src="app.js"></script><script src="deco.js"></script><script src="ai-config.js"></script><script src="ai-tanya.js"></script>
+<script>
+const u = getUser();
+if (!u || u.role !== "tutor") location.href = "index.html";
+lg.innerHTML = DECO.mascot();
+
+/* ---------- mode terang / gelap ---------- */
+try { if (localStorage.getItem("lms_theme") === "dark") document.documentElement.dataset.theme = "dark"; } catch (e) {}
+sw.onclick = () => {
+  const d = document.documentElement.dataset.theme === "dark";
+  if (d) delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = "dark";
+  try { localStorage.setItem("lms_theme", d ? "light" : "dark"); } catch (e) {}
+};
+
+/* ---------- pindah tampilan ---------- */
+function view(v) {
+  document.querySelectorAll(".nv[data-v]").forEach(b => b.classList.toggle("on", b.dataset.v === v));
+  document.querySelectorAll(".view").forEach(d => d.classList.toggle("hidden", d.id !== "v-" + v));
+  if (v === "dash") bars();
+  if (location.hash !== "#" + v) history.replaceState(null, "", "#" + v);
+}
+document.querySelectorAll(".nv[data-v]").forEach(b => b.onclick = () => view(b.dataset.v));
+document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { buatKode(); view(b.dataset.go); });
+
+/* ---------- form link ---------- */
+const esc = s => (s || "").replace(/"/g, "&quot;");
+form.innerHTML = `<div class="slide open"><div class="slide-h"><span class="slide-t">🎬 Materi (tampil di beranda siswa, di luar 5 tema)</span><span class="pill" id="pv"></span></div>
+  <div class="slide-b"><label>Link video Materi (YouTube)</label>
+  <input id="mt" value="${esc(getMateri())}" placeholder="https://www.youtube.com/watch?v=..."></div></div>`;
+function ambil() { return document.getElementById("mt").value.trim(); }
+function stat() {
+  const a = ambil(), v = a ? 1 : 0;
+  document.getElementById("pv").className = "pill " + (v ? "ok" : "no");
+  document.getElementById("pv").textContent = v ? "Video ✓" : "Video belum";
+  sum.innerHTML = `
+    <div class="sumrow"><span>📚 Total tema</span><span class="cnt">${TEMA.length}</span></div>
+    <div class="sumrow"><span>🎬 Video Materi terpasang</span><span class="cnt ${v ? "g" : "y"}">${v}/1</span></div>
+    <div class="sumrow"><span>🧪 Virtual lab</span><span class="cnt g">${TEMA.length}</span></div>`;
+  return { v };
+}
+function buatKode() { kode.value = "const MATERI_URL = " + JSON.stringify(ambil()) + ";"; }
+form.addEventListener("input", () => { stat(); buatKode(); });
+simpan.onclick = () => { save("lms_materi", ambil()); buatKode(); ok.textContent = "✅ Tersimpan"; setTimeout(() => ok.textContent = "", 2500); renderDash(); };
+salin.onclick = () => { kode.select(); document.execCommand("copy"); ok2.textContent = "✅ Tersalin"; setTimeout(() => ok2.textContent = "", 2500); };
+
+/* ---------- dasbor ---------- */
+function avg(id) {
+  const p = getProgress(), n = Object.keys(p);
+  return n.length ? Math.round(n.reduce((s, x) => s + pct(x, id), 0) / n.length) : 0;
+}
+function renderDash() {
+  const s = stat(), p = getProgress(), n = Object.keys(p);
+  const rata = n.length ? Math.round(TEMA.reduce((a, t) => a + avg(t.id), 0) / TEMA.length) : 0;
+  tiles.innerHTML = [
+    ["📚", TEMA.length, "Tema praktikum"], ["🔗", s.v + "/1", "Video Materi"],
+    ["🧑‍🎓", n.length, "Murid aktif"], ["📈", rata + "%", "Rata-rata progres"]
+  ].map(x => `<div class="tile"><div class="ic">${x[0]}</div><div><b>${x[1]}</b><span>${x[2]}</span></div></div>`).join("");
+  labs.innerHTML = TEMA.map(t => `<a href="${t.lab}" target="_blank" rel="noopener"><span style="font-size:1.4rem">${t.ikon}</span><span>Lab ${t.id}: ${t.judul}</span><span class="go">Buka ›</span></a>`).join("");
+  bars();
+}
+function bars() {
+  document.getElementById("bars").innerHTML = TEMA.map(t => `<div class="brow"><span>${t.ikon} ${t.judul}</span><div class="trk"><i data-w="${avg(t.id)}"></i></div><b>${avg(t.id)}%</b></div>`).join("");
+  requestAnimationFrame(() => requestAnimationFrame(() => document.querySelectorAll(".trk i").forEach(i => i.style.width = i.dataset.w + "%")));
+}
+
+/* ---------- tabel progres ---------- */
+function tabel() {
+  const p = getProgress(), names = Object.keys(p);
+  if (!names.length) { tbl.innerHTML = `<tr><td class="empty">${DECO.mascot()}Belum ada murid yang memulai. Data akan muncul di sini.</td></tr>`; return; }
+  tbl.innerHTML = "<tr><th>Nama</th>" + TEMA.map(t => `<th>Tema ${t.id}</th>`).join("") + "<th>Total XP</th></tr>"
+    + names.map(n => {
+      let xp = 0;
+      const cells = TEMA.map(t => {
+        const d = (p[n] || {})[t.id] || {}, v = pct(n, t.id); xp += d.xp || 0;
+        return `<td><b>${v}%</b><div class="mini"><i style="width:${v}%"></i></div>${d.xp !== undefined ? `<span class="xpc">${d.xp} XP · misi ${d.misi}${d.laporan != null ? " · laporan " + d.laporan : ""}</span>` : ""}</td>`;
+      }).join("");
+      return `<tr><td><b>${n.replace(/</g, "&lt;")}</b></td>${cells}<td><b>${xp}</b> XP</td></tr>`;
+    }).join("");
+}
+reset.onclick = () => { if (confirm("Hapus semua data progres?")) { localStorage.removeItem("lms_progress"); tabel(); renderDash(); } };
+
+/* ---------- uji penilai AI ---------- */
+(function () {
+  const on = PemantikAI.available(), c = window.AI_CONFIG || {};
+  const nama = c.PROXY_URL ? "Server AI (proxy)" : [c.GEMINI_API_KEY && "Gemini", c.GROQ_API_KEY && "Groq", c.GROK_API_KEY && "Grok"].filter(Boolean).join(" + ");
+  aiStat.innerHTML = `<span>Status penilai</span><span class="cnt ${on ? "g" : "y"}">${on ? "AI aktif: " + nama : "Belum aktif (memakai kata kunci)"}</span>`;
+  aiBtn.onclick = async () => {
+    aiOut.textContent = "Menguji...";
+    if (!PemantikAI.available()) { aiOut.innerHTML = "⚠️ Kunci API belum diisi di <b>ai-config.js</b>, jadi penilaian memakai kata kunci sementara."; return; }
+    try {
+      const r = await PemantikAI.nilai("Cahaya Dibiaskan", [{ q: "Mengapa pensil di dalam air terlihat bengkok?", model: "Karena cahaya dibiaskan (dibelokkan) saat berpindah dari air ke udara.", a: aiTest.value }]);
+      aiOut.innerHTML = `✅ Tersambung lewat <b>${r.by}</b>.<br>Status: <b>${r.hasil[0].status}</b><br>Tanggapan: ${String(r.hasil[0].umpan_balik).replace(/</g, "&lt;")}`;
+    } catch (e) { aiOut.innerHTML = "❌ Gagal tersambung: " + String(e.message).replace(/</g, "&lt;") + ". Periksa kunci API, kuota, atau koneksi internet."; }
+  };
+})();
+buatKode(); renderDash(); tabel();
+const h = location.hash.slice(1); if (["dash", "links", "prog", "pub"].includes(h)) view(h);
+</script></body></html>

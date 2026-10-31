@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lab 4 – Cahaya Dibiaskan</title><link rel="stylesheet" href="lab-core.css"></head>
+<body><div id="app"></div>
+<script src="ai-config.js"></script><script src="lab-core.js"></script><script src="lab-icons.js"></script>
+<script>
+(function(){
+const L=LabKit,I=L.icons;
+const W=760,N=1.33,TB=322;
+const ITEM={pensil:'Pensil',sedotan:'Sedotan',sendok:'Sendok'};
+const EM={pensil:'✏️',sedotan:'🥤',sendok:'🥄'};
+const DEF=()=>({mode:'gelas',item:'pensil',water:1,tilt:25,dep:90,ghost:false,pool:110});
+
+function seg(a,b,kind,tip,cap){
+  const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy)||1,ux=dx/len,uy=dy/len,nx=-uy,ny=ux;
+  let s='';
+  if(kind==='pensil'){
+    const e=tip?{x:b.x-ux*22,y:b.y-uy*22}:b;
+    s+=`<line x1="${a.x}" y1="${a.y}" x2="${e.x}" y2="${e.y}" stroke="#ffc933" stroke-width="14"/><line x1="${a.x+nx*3}" y1="${a.y+ny*3}" x2="${e.x+nx*3}" y2="${e.y+ny*3}" stroke="#e8a90f" stroke-width="2"/>`;
+    if(tip)s+=`<polygon points="${e.x+nx*7},${e.y+ny*7} ${e.x-nx*7},${e.y-ny*7} ${b.x},${b.y}" fill="#efc9a0"/><circle cx="${b.x-ux*3}" cy="${b.y-uy*3}" r="3" fill="#333"/>`;
+    if(cap)s+=`<line x1="${a.x}" y1="${a.y}" x2="${a.x+ux*10}" y2="${a.y+uy*10}" stroke="#b9c0cc" stroke-width="14"/><circle cx="${a.x-ux*2}" cy="${a.y-uy*2}" r="7.5" fill="#ff8fa3"/>`;
+  }else if(kind==='sedotan'){
+    s+=`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="#fff" stroke-width="10"/><line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="#e5484d" stroke-width="10" stroke-dasharray="9 9"/>`;
+  }else{
+    s+=`<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="#b6bdcc" stroke-width="8" stroke-linecap="round"/>`;
+    if(tip){const ang=Math.atan2(dy,dx)*180/Math.PI;s+=`<g transform="translate(${b.x+ux*8},${b.y+uy*8}) rotate(${ang})"><ellipse rx="19" ry="12" fill="#dfe4ee" stroke="#7d8798" stroke-width="2"/><ellipse cx="-2" rx="11" ry="6" fill="#f6f8fb"/></g>`;}
+  }
+  return s;
+}
+
+function scene(host,o){
+  const inter=o.interactive,id=L.uid('s4');
+  host.innerHTML=`<svg viewBox="0 0 ${W} 380" role="img" aria-label="Percobaan pembiasan cahaya"></svg>${inter?'<div class="ctl" id="'+id+'c"></div>':''}`;
+  const svg=host.querySelector('svg'),ctl=host.querySelector('.ctl');
+  let st=DEF(),rev=false;
+
+  function drawGelas(){
+    const a=st.tilt*Math.PI/180,Ls=st.dep,ux=Math.sin(a),uy=Math.cos(a),S={x:360,y:195},top={x:S.x-125*ux,y:S.y-125*uy};
+    const water=!!st.water;
+    let s=`<defs><linearGradient id="${id}w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfe8ff"/><stop offset="1" stop-color="#eaf4ff"/></linearGradient></defs><rect width="${W}" height="${TB}" fill="url(#${id}w)"/>`;
+    s+=`<rect x="40" y="60" width="130" height="150" rx="4" fill="#9fd0ff" stroke="#f4f4f4" stroke-width="8"/><path d="M105 60V210M40 135H170" stroke="#f4f4f4" stroke-width="5"/><text class="lbl" x="105" y="232" text-anchor="middle" style="fill:#3a4a66">Jendela</text>`;
+    s+=I.table(W,TB);
+    // item
+    if(!rev){
+      s+=seg({x:470,y:312},{x:660,y:312},st.item,true,true)+`<text class="lbl" x="565" y="342" text-anchor="middle" style="fill:#fff6dd">${ITEM[st.item]} (belum dimasukkan)</text>`;
+    }else{
+      const real={x:S.x+Ls*ux,y:S.y+Ls*uy};
+      if(water){
+        const app={x:S.x+Ls*ux,y:S.y+Ls*uy/1.6};
+        s+=seg(top,S,st.item,false,true)+seg(S,app,st.item,true,false);
+        if(st.ghost)s+=`<line x1="${S.x}" y1="${S.y}" x2="${real.x}" y2="${real.y}" stroke="#2a4a7a" stroke-width="3" stroke-dasharray="6 6"/><text class="lbl" x="452" y="${real.y+5}" style="fill:#234">posisi sebenarnya</text>`;
+      }else s+=seg(top,real,st.item,true,true);
+    }
+    // air & gelas
+    if(water)s+=`<rect x="282" y="195" width="156" height="125" fill="rgba(70,150,255,.4)"/><rect x="282" y="193" width="156" height="4" fill="rgba(255,255,255,.65)"/>`;
+    s+=`<path d="M280 125V320H440V125" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.95)" stroke-width="5" stroke-linejoin="round"/><path d="M290 140V300" stroke="#fff" stroke-opacity=".5" stroke-width="4" stroke-linecap="round"/>`;
+    s+=`<text class="lbl" x="360" y="${TB+24}" text-anchor="middle" style="fill:#fff6dd">${water?'Gelas berisi air':'Gelas kosong'}</text>`;
+    svg.innerHTML=s;
+  }
+
+  function drawKolam(){
+    const D=st.pool,SURF=215,BOT=SURF+D,CX=520,E={x:208,y:125};
+    const g=q=>{const tw=Math.atan((CX-q)/D),sa=Math.min(.999,N*Math.sin(tw)),ta=Math.asin(sa);return q-(SURF-E.y)*Math.tan(ta)-E.x;};
+    let lo=CX-D*Math.tan(48*Math.PI/180),hi=CX;for(let i=0;i<40;i++){const m=(lo+hi)/2;if(g(m)>0)hi=m;else lo=m;}
+    const q=(lo+hi)/2,yApp=SURF+(SURF-E.y)*(CX-q)/(q-E.x);
+    let s=`<defs><linearGradient id="${id}s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6ec6ff"/><stop offset="1" stop-color="#d8f1ff"/></linearGradient><linearGradient id="${id}a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5fb7ff"/><stop offset="1" stop-color="#2a74c4"/></linearGradient></defs>
+    <rect width="${W}" height="${SURF}" fill="url(#${id}s)"/><g transform="translate(660,60)">${I.sun(26)}</g><g transform="translate(560,50)">${I.cloud(.8)}</g>
+    <rect x="0" y="${SURF}" width="300" height="${380-SURF}" fill="#6fbf5a"/>
+    <rect x="300" y="${BOT}" width="460" height="${380-BOT}" fill="#9b7447"/>
+    <rect x="300" y="${SURF}" width="460" height="${D}" fill="url(#${id}a)" opacity=".92"/>
+    <path d="M300 ${BOT-20}H760M${340} ${SURF+12}V${BOT}M420 ${SURF+12}V${BOT}M500 ${SURF+12}V${BOT}M580 ${SURF+12}V${BOT}M660 ${SURF+12}V${BOT}M740 ${SURF+12}V${BOT}" stroke="#fff" stroke-opacity=".12" stroke-width="2"/>
+    <rect x="300" y="${SURF-3}" width="460" height="5" fill="#fff" opacity=".75"/>
+    <rect x="290" y="${SURF-6}" width="14" height="${380-SURF+6}" fill="#8f8f98"/>
+    <rect x="0" y="165" width="300" height="12" fill="#b9854a"/><rect x="20" y="177" width="12" height="${SURF-177+30}" fill="#8a5a33"/><rect x="250" y="177" width="12" height="${SURF-177+30}" fill="#8a5a33"/>
+    <text x="150" y="165" font-size="64" text-anchor="middle">🧒</text>
+    <text class="lbl" x="150" y="196" text-anchor="middle" style="fill:#fff6dd">Kamu</text>
+    <text class="lbl" x="660" y="${SURF-12}" style="fill:#234">Permukaan air</text>`;
+    s+=`<g transform="translate(${CX},${BOT-18})">${I.coin(16)}</g><text class="lbl" x="${CX+26}" y="${BOT-12}" style="fill:#fff">Koin sebenarnya</text>`;
+    if(rev){
+      s+=`<polyline points="${CX},${BOT-18} ${q},${SURF} ${E.x},${E.y}" fill="none" stroke="#ffd23f" stroke-width="4" stroke-linejoin="round"/>
+      <line x1="${q}" y1="${SURF}" x2="${CX}" y2="${yApp}" stroke="#fff" stroke-width="2.5" stroke-dasharray="6 6"/>
+      <g transform="translate(${CX},${yApp})" opacity=".6">${I.coin(16)}</g><text class="lbl g" x="${CX+26}" y="${yApp+5}">Koin terlihat di sini</text>`;
+    }else s+=`<text class="lbl" x="360" y="110" opacity=".8" style="fill:#234">Koin belum diuji: di mana koin terlihat?</text>`;
+    svg.innerHTML=s;
+  }
+
+  function draw(){st.mode==='kolam'?drawKolam():drawGelas();}
+  const chips=(arr,cur,attr)=>arr.map(a=>`<button class="chip ${a[0]==cur?'on':''}" data-${attr}="${a[0]}">${a[1]}</button>`).join('');
+  function buildCtl(){
+    if(!inter)return;
+    let h=`<div style="display:flex;gap:8px;flex-wrap:wrap;width:100%">${chips([['gelas','🥛 Benda di dalam gelas'],['kolam','🪙 Koin di kolam']],st.mode,'mode')}</div>`;
+    if(st.mode==='gelas')h+=`<div style="display:flex;gap:8px;flex-wrap:wrap;width:100%">${chips(Object.keys(ITEM).map(k=>[k,EM[k]+' '+ITEM[k]]),st.item,'item')}${chips([['0','Gelas kosong'],['1','Gelas berisi air']],String(st.water),'water')}<button class="chip ${st.ghost?'on':''}" data-ghost="1">Tunjukkan posisi sebenarnya</button></div><label>Miringkan <input type="range" min="10" max="45" value="${st.tilt}" id="${id}t"></label><label>Masukkan lebih dalam <input type="range" min="40" max="120" value="${st.dep}" id="${id}d"></label>`;
+    else h+=`<label>Kedalaman kolam <input type="range" min="60" max="150" value="${st.pool}" id="${id}p"></label>`;
+    ctl.innerHTML=h;
+    const ch=()=>{draw();o.onChange&&o.onChange();};
+    ctl.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{st.mode=b.dataset.mode;rev=false;buildCtl();draw();o.onChange&&o.onChange();});
+    ctl.querySelectorAll('[data-item]').forEach(b=>b.onclick=()=>{st.item=b.dataset.item;buildCtl();ch();});
+    ctl.querySelectorAll('[data-water]').forEach(b=>b.onclick=()=>{st.water=+b.dataset.water;buildCtl();ch();});
+    ctl.querySelectorAll('[data-ghost]').forEach(b=>b.onclick=()=>{st.ghost=!st.ghost;buildCtl();draw();});
+    [['t','tilt'],['d','dep'],['p','pool']].forEach(a=>{const e=ctl.querySelector('#'+id+a[0]);if(e)e.oninput=()=>{st[a[1]]=+e.value;ch();};});
+  }
+  buildCtl();draw();
+  return {
+    setState(s){st=Object.assign(DEF(),s);buildCtl();draw();},getState(){return st;},
+    reset(){st=DEF();rev=false;buildCtl();draw();},
+    reveal(b){rev=b;draw();},
+    predictSpec(){
+      return st.mode==='kolam'
+       ?{q:'Prediksimu: letak koin yang terlihat dibanding letak sebenarnya …',opts:[['dekat','Terlihat lebih dekat ke permukaan (kolam tampak dangkal)'],['sama','Sama dengan letak sebenarnya'],['jauh','Terlihat lebih dalam']]}
+       :{q:'Prediksimu: bagaimana '+ITEM[st.item].toLowerCase()+' terlihat dari samping gelas?',opts:[['lurus','Tetap lurus'],['patah','Tampak patah / bengkok di permukaan air']]};
+    },
+    test(){
+      rev=true;draw();
+      if(st.mode==='kolam')return {id:'kolam',key:'dekat',text:'Koin tampak lebih dekat ke permukaan. Cahaya dibiaskan saat keluar dari air ke udara, sehingga kolam terlihat lebih dangkal dari aslinya.',cells:['Koin di kolam','Kedalaman '+st.pool,'Terlihat lebih dekat ke permukaan']};
+      const n=ITEM[st.item];
+      return st.water
+        ?{id:'gelas-'+st.item+'-1',key:'patah',text:n+' tampak patah di permukaan air! Padahal tidak patah. Cahaya dari bagian yang terendam dibiaskan (dibelokkan) saat keluar dari air ke udara.',cells:[n,'Gelas berisi air','Tampak patah']}
+        :{id:'gelas-'+st.item+'-0',key:'lurus',text:n+' tampak lurus karena cahaya hanya melewati udara, sehingga tidak dibiaskan.',cells:[n,'Gelas kosong','Tampak lurus']};
+    }
+  };
+}
+
+const heroArt=`<svg viewBox="0 0 400 300"><rect x="130" y="70" width="140" height="200" rx="8" fill="rgba(255,255,255,.1)" stroke="#fff" stroke-width="5"/><rect x="134" y="140" width="132" height="126" fill="rgba(70,150,255,.45)"/>
+<line x1="230" y1="40" x2="212" y2="140" stroke="#ffc933" stroke-width="14"/><line x1="212" y1="140" x2="190" y2="198" stroke="#ffc933" stroke-width="14"/><circle cx="231" cy="38" r="8" fill="#ff8fa3"/></svg>`;
+const GP=[['lurus','Tetap lurus'],['patah','Tampak patah / bengkok']];
+const KP=[['dekat','Terlihat lebih dekat ke permukaan'],['sama','Sama dengan letak sebenarnya'],['jauh','Terlihat lebih dalam']];
+
+LabKit.create({
+  key:'lab4',brand:'Misi Pensil Patah',kicker:'Petualangan IPA · Kelas V',title:'Misi Pensil Patah',
+  story:'Pensil di dalam gelas air tiba-tiba tampak patah, dan koin di dasar kolam tampak lebih dekat! Selidiki apa yang terjadi pada cahaya.',heroArt:heroArt,
+  lab:{kicker:'Modul A · Eksperimen virtual',title:'Laboratorium pembiasan',
+    desc:'Pilih benda, atur isi gelas, dan amati. Setelah itu, coba juga percobaan koin di kolam.',
+    tip:'Tip: bandingkan hasil antara gelas kosong dan gelas berisi air.',
+    predict:{q:'Prediksimu: bagaimana pensil terlihat dari samping gelas?',opts:GP},
+    columns:['Benda','Kondisi','Hasil pengamatan'],
+    report:[{"q": "Pilih satu keadaan, gelas berisi air atau gelas kosong. Ceritakan apa yang kamu lihat pada benda di dalam gelas itu.", "kw": ["patah", "bengkok", "lurus"], "need": 1, "model": "Salah satu keadaan sudah cukup. Gelas berisi air: benda tampak patah/bengkok di permukaan air. Gelas kosong: benda tampak lurus."}, {"q": "Mengapa benda di gelas berisi air tampak patah?", "kw": ["dibiaskan", "dibelokkan", "bias", "membelok", "pembiasan"], "need": 1, "model": "Karena cahaya dibiaskan (dibelokkan) saat berpindah dari air ke udara."}, {"q": "Ceritakan satu hal yang kamu amati pada koin di dasar kolam saat dilihat dari tepi kolam. (Menyebut satu hal saja sudah cukup.)", "kw": ["dekat", "dangkal", "permukaan", "lebih dalam", "hati", "aman", "orang dewasa"], "need": 1, "model": "Salah satu sudah cukup: koin tampak lebih dekat ke permukaan, atau kolam terlihat lebih dangkal dari aslinya. Padahal kolam sebenarnya lebih dalam, jadi kita harus berhati-hati dan tanya orang dewasa dulu."}],minObs:0},
+  createScene:scene,
+  missions:[
+   {id:'m1',poin:["[inti] Pensil tampak patah karena cahaya dari bagian yang terendam dibiaskan (dibelokkan) saat keluar dari air ke udara","[pendukung] Pensilnya sebenarnya tidak patah"],title:'Pensil Patah',short:'Pensil di gelas berisi air.',badge:'Pengamat Pembiasan',skills:['Memprediksi hasil','Menggunakan bukti'],
+    story:'Seorang anak memasukkan pensil ke gelas berisi air. Dari samping, pensilnya tampak patah!',preset:{mode:'gelas',item:'pensil',water:1,tilt:25,dep:95},
+    pQ:'Prediksimu: bagaimana pensil terlihat?',pOpts:GP,
+    q:'Mengapa pensil tampak patah di permukaan air?',
+    choices:[['Cahaya dari bagian pensil di dalam air dibiaskan (dibelokkan) saat keluar ke udara.',true],['Pensil benar-benar patah saat masuk air.',false,'Pensilnya tidak patah. Saat dikeluarkan, pensil tetap utuh.'],['Air membuat pensil menjadi lunak.',false,'Air tidak melunakkan pensil dalam waktu singkat; ini hanya tampilan.'],['Gelasnya berubah bentuk.',false,'Gelas tidak berubah; yang berubah adalah arah cahaya.']],
+    reasonQ:'Tulis alasanmu:',kw:['dibiaskan','dibelokkan','bias','membelok','pembiasan'],need:1,
+    hints:['Bandingkan pensil di atas dan di bawah permukaan air.','Cahaya melewati dua zat berbeda: air dan udara.','Cahaya yang berpindah zat bening akan …'],
+    explain:'Cahaya dibiaskan (dibelokkan) saat berpindah dari air ke udara, sehingga pensil tampak patah.'},
+   {id:'m2',poin:["[inti] Tanpa air cahaya hanya melewati satu zat (udara) sehingga tidak dibiaskan, jadi pensil tampak lurus"],title:'Gelas Kosong',short:'Bandingkan dengan tanpa air.',badge:'Pembanding Cermat',skills:['Hubungan variabel dan hasil','Menemukan kesalahan percobaan'],
+    story:'Kali ini pensil dimasukkan ke gelas kosong. Apa bedanya?',preset:{mode:'gelas',item:'pensil',water:0,tilt:25,dep:95},
+    pQ:'Prediksimu: bagaimana pensil terlihat?',pOpts:GP,
+    q:'Mengapa pensil tampak lurus di gelas kosong?',
+    choices:[['Tanpa air, cahaya hanya melewati udara sehingga tidak dibiaskan.',true],['Pensil lebih kuat daripada air.',false,'Ini tentang arah cahaya, bukan kekuatan pensil.'],['Gelas kosong memantulkan semua cahaya.',false,'Tidak. Cahaya melewati udara dan sampai ke mata.'],['Pensil menjadi lebih panjang.',false,'Panjang pensil tidak berubah.']],
+    reasonQ:'Tulis alasanmu:',kw:['udara','tidak dibiaskan','tidak dibelokkan','tanpa air','satu zat'],need:1,
+    hints:['Apa perbedaan gelas ini dengan gelas sebelumnya?','Berapa banyak jenis zat yang dilewati cahaya?','Tidak ada air → tidak ada …'],
+    explain:'Pembiasan terjadi saat cahaya berpindah dari satu zat ke zat lain. Tanpa air, tidak ada perpindahan sehingga pensil tampak lurus.'},
+   {id:'m3',poin:["[inti] Tidak, sedotan sebenarnya lurus dan tidak rusak","[inti] Ia tampak bengkok karena cahaya dibiaskan di permukaan air"],essay:'Apakah sedotannya benar-benar bengkok? Jelaskan alasannya.',title:'Sedotan Misterius',short:'Sedotan di minuman.',badge:'Penguji Ilusi Optik',skills:['Mengidentifikasi masalah','Memilih informasi relevan'],
+    story:'Sedotan di gelas minumanmu terlihat bengkok. Apakah sedotannya rusak?',preset:{mode:'gelas',item:'sedotan',water:1,tilt:25,dep:95},
+    pQ:'Prediksimu: bagaimana sedotan terlihat?',pOpts:GP,
+    q:'Apakah sedotannya benar-benar bengkok?',
+    choices:[['Tidak, sedotan hanya tampak bengkok karena cahaya dibiaskan di permukaan air.',true],['Ya, sedotan pasti rusak karena terkena air.',false,'Keluarkan sedotannya dan kamu akan melihatnya tetap lurus.'],['Ya, sedotan melengkung karena panas.',false,'Tidak ada panas dalam percobaan ini.'],['Tidak, sedotan berubah menjadi lebih panjang.',false,'Panjangnya tidak berubah.']],
+    reasonQ:'Tulis alasanmu:',kw:['dibiaskan','dibelokkan','bias','tampak','terlihat','tidak'],need:2,
+    hints:['Lihat posisi sebenarnya (garis putus-putus) jika kamu mengujinya di laboratorium.','Sedotan itu sebenarnya lurus.','Yang berubah hanyalah cara cahaya sampai ke matamu.'],
+    explain:'Sedotan tidak benar-benar bengkok. Tampak bengkok karena cahaya dibiaskan saat keluar dari air.'},
+   {id:'m4',poin:["[inti] Koin tampak lebih dekat ke permukaan karena cahaya dari koin dibiaskan saat keluar dari air ke udara","[pendukung] Akibatnya kolam tampak lebih dangkal dari aslinya"],title:'Koin di Kolam',short:'Mengapa koin tampak dekat?',badge:'Pengukur Kedalaman',skills:['Hubungan variabel dan hasil','Menggunakan bukti'],
+    story:'Dari dermaga, kamu melihat koin di dasar kolam. Tampaknya mudah diambil. Benarkah?',preset:{mode:'kolam',pool:110},
+    tip:'Garis kuning menunjukkan jalur cahaya dari koin ke matamu.',
+    pQ:'Prediksimu: letak koin yang terlihat …',pOpts:KP,
+    q:'Mengapa koin tampak lebih dekat ke permukaan?',
+    choices:[['Cahaya dari koin dibiaskan saat keluar dari air ke udara, sehingga koin tampak lebih dangkal.',true],['Koin naik sendiri ke permukaan.',false,'Koin tetap di dasar kolam.'],['Air kolam mengecilkan ukuran koin.',false,'Yang berubah adalah posisi yang terlihat, bukan ukuran.'],['Mata kita salah melihat tanpa sebab.',false,'Ada sebabnya: pembiasan cahaya.']],
+    reasonQ:'Tulis alasanmu:',kw:['dibiaskan','dibelokkan','bias','dangkal','pembiasan'],need:1,
+    hints:['Bandingkan koin sebenarnya dan koin yang terlihat.','Ikuti garis kuning dari koin sampai ke matamu.','Di permukaan air, cahaya … arahnya.'],
+    explain:'Pembiasan membuat benda di dalam air tampak lebih dekat ke permukaan, sehingga kolam terlihat lebih dangkal.'},
+   {id:'m5',poin:["[inti] Jangan menilai kedalaman kolam hanya dari penglihatan; kolam sebenarnya lebih dalam dari yang tampak","[inti] Tindakan aman: berhati-hati, jangan langsung masuk atau melompat, tanya/minta ditemani orang dewasa atau cek kedalaman dengan cara aman","[pendukung] Alasannya pembiasan membuat dasar kolam tampak dangkal"],essay:'Kolam tampak dangkal, padahal dasarnya dalam. Apa yang harus kamu lakukan supaya aman? Jelaskan alasannya.',title:'Aman di Kolam',short:'Tindakan yang tepat.',badge:'Juara Laboratorium',skills:['Menggunakan bukti','Mengidentifikasi masalah'],
+    story:'Kolam di taman tampak dangkal, padahal dasarnya sangat dalam.',preset:{mode:'kolam',pool:150},
+    pQ:'Prediksimu: letak koin yang terlihat …',pOpts:KP,
+    q:'Tindakan mana yang paling aman setelah memahami pembiasan?',
+    choices:[['Jangan menilai kedalaman kolam hanya dari penglihatan; kolam sebenarnya lebih dalam.',true],['Langsung masuk karena kolam tampak dangkal.',false,'Berbahaya! Kolam sebenarnya lebih dalam daripada tampaknya.'],['Berlari ke dalam kolam untuk mengambil koin.',false,'Berbahaya. Jangan berlari di dekat kolam.'],['Menganggap semua kolam sama dalamnya.',false,'Kedalaman kolam berbeda-beda.']],
+    reasonQ:'Jelaskan alasanmu:',kw:['lebih dalam','dalam','dangkal','hati','bahaya','tampak'],need:1,
+    hints:['Bandingkan kedalaman sebenarnya dan yang terlihat.','Benda di air tampak lebih dangkal.','Keselamatan lebih penting daripada koin.'],
+    explain:'Karena pembiasan, dasar kolam tampak lebih dangkal dari aslinya. Selalu berhati-hati dan jangan menilai kedalaman hanya dari penglihatan.'}
+  ]
+});
+})();
+</script></body></html>
