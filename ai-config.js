@@ -10,10 +10,10 @@
    di bawah) dan kosongkan kedua kunci di sini.
 */
 window.AI_CONFIG = {
-  GEMINI_API_KEY: "",                       // tempel kunci Gemini di antara tanda kutip
+  GEMINI_API_KEY: "AQ.Ab8RN6LXO55Ch3-W0PDPk1k8C5CE1j1hl48GPv3s9VevjgyUIw",                       // tempel kunci Gemini di antara tanda kutip
   GEMINI_MODELS: ["gemini-flash-latest", "gemini-flash-lite-latest"],   // dicoba berurutan
 
-  GROK_API_KEY: "",                         // tempel kunci Grok (xAI) di antara tanda kutip
+  GROK_API_KEY: "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",                         // tempel kunci Grok (xAI) di antara tanda kutip
   GROK_MODEL: "grok-4",                     // ganti sesuai nama model yang tersedia di akun xAI-mu
   GROK_URL: "https://api.x.ai/v1/chat/completions",
 
