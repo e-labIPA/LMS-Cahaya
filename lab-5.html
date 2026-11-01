@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lab 5 – Cahaya Diuraikan</title><link rel="stylesheet" href="lab-core.css"></head>
+<body><div id="app"></div>
+<script src="ai-config.js"></script><script src="lab-core.js"></script><script src="lab-icons.js"></script>
+<script>
+(function(){
+const L=LabKit,I=L.icons,C=L.clamp;
+const W=760,TB=322,D=Math.PI/180;
+const COLS=[['Merah','#ff2d2d'],['Jingga','#ff8c1a'],['Kuning','#ffe600'],['Hijau','#2ecc40'],['Biru','#2f8cff'],['Nila','#4b3bd6'],['Ungu','#a23bd6']];
+const DEF=()=>({mode:'prisma',rot:0,sun:1,mist:70});
+/* ---- prisma yang bisa diputar: penelusuran sinar (hukum Snell) dengan indeks bias berbeda tiap warna ---- */
+const PSC=.75,PPX=400,PPY=92,PFX=190,PRY=92,PSX=650,PSY=160,PSH=148,PBASE=15,RMAX=12;
+const NIDX=[1.43,1.45,1.47,1.485,1.50,1.51,1.52];/* merah paling kecil dibelokkan, ungu paling besar (dilebih-lebihkan agar terlihat) */
+const PV=[[0,-105],[-92,60],[92,60]].map(v=>[v[0]*PSC,v[1]*PSC]);
+function trace(n,phi){
+  const c=Math.cos(phi*D),sn=Math.sin(phi*D);
+  const P=PV.map(v=>[PPX+v[0]*c-v[1]*sn,PPY+v[0]*sn+v[1]*c]);
+  const cen=[(P[0][0]+P[1][0]+P[2][0])/3,(P[0][1]+P[1][1]+P[2][1])/3];
+  const E=[0,1,2].map(i=>{const a=P[i],b=P[(i+1)%3],dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy);let nx=dy/l,ny=-dx/l;
+    if(nx*((a[0]+b[0])/2-cen[0])+ny*((a[1]+b[1])/2-cen[1])<0){nx=-nx;ny=-ny;}return {a:a,b:b,n:[nx,ny]};});
+  let o=[PFX+6,PRY],d=[1,0],skip=-1,inside=false,p1=null;
+  for(let it=0;it<6;it++){
+    let best=null;
+    E.forEach((e,i)=>{if(i===skip)return;
+      const ex=e.b[0]-e.a[0],ey=e.b[1]-e.a[1],den=d[0]*ey-d[1]*ex;if(Math.abs(den)<1e-9)return;
+      const t=((e.a[0]-o[0])*ey-(e.a[1]-o[1])*ex)/den,u=((e.a[0]-o[0])*d[1]-(e.a[1]-o[1])*d[0])/den;
+      if(t>1e-6&&u>=0&&u<=1&&(!best||t<best.t))best={t:t,i:i};});
+    if(!best)return {ok:false};
+    const p=[o[0]+d[0]*best.t,o[1]+d[1]*best.t],N=E[best.i].n,dn=d[0]*N[0]+d[1]*N[1];
+    if(!inside){
+      const ci=-dn;if(ci<=0)return {ok:false};
+      const eta=1/n,k=1-eta*eta*(1-ci*ci),f=eta*ci-Math.sqrt(k);
+      d=[eta*d[0]+f*N[0],eta*d[1]+f*N[1]];inside=true;o=p;p1=p;skip=best.i;
+    }else{
+      const eta=n,k=1-eta*eta*(1-dn*dn);
+      if(k<0){d=[d[0]-2*dn*N[0],d[1]-2*dn*N[1]];o=p;skip=best.i;continue;}
+      const Nn=[-N[0],-N[1]],f=eta*dn-Math.sqrt(k);
+      d=[eta*d[0]+f*Nn[0],eta*d[1]+f*Nn[1]];
+      if(d[0]<=.05)return {ok:false};
+      return {ok:true,p1:p1,p2:p,y:p[1]+(PSX-p[0])*d[1]/d[0]};
+    }
+  }
+  return {ok:false};
+}
+const PARTS=[];let sd=7;const rnd=()=>{sd=(sd*16807)%2147483647;return sd/2147483647;};
+for(let i=0;i<170;i++)PARTS.push({dx:-100+rnd()*230,dy:-125+rnd()*135,r:2+rnd()*4});
+
+function scene(host,o){
+  const inter=o.interactive,id=L.uid('s5');
+  host.innerHTML=`<svg viewBox="0 0 ${W} 380" role="img" aria-label="Penguraian cahaya"></svg>${inter?'<div class="ctl" id="'+id+'c"></div>':''}`;
+  const svg=host.querySelector('svg'),ctl=host.querySelector('.ctl');
+  let st=DEF(),rev=false;
+
+  function drawPrisma(){
+    const phi=PBASE+st.rot,tr=NIDX.map(n=>trace(n,phi)),x0=PFX+6,T=tr.find(t=>t.ok);
+    let s=`<defs><linearGradient id="${id}w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#13213f"/><stop offset="1" stop-color="#1f3a63"/></linearGradient><filter id="${id}f" x="-10%" y="-300%" width="120%" height="700%"><feGaussianBlur stdDeviation="4"/></filter></defs>
+    <rect width="${W}" height="${TB}" fill="url(#${id}w)"/>`+I.table(W,TB);
+    s+=`<g transform="translate(${PSX},${PSY})">${I.screen(26,PSH,TB-PSY-PSH)}`;
+    if(rev)tr.forEach((t,i)=>{if(t.ok)s+=`<rect x="0" y="${t.y-PSY-6}" width="26" height="12" rx="3" fill="${COLS[i][1]}" opacity=".92"/>`;});
+    s+=`</g>`;
+    s+=`<rect x="${PFX-90}" y="${PRY+18}" width="6" height="${TB-PRY-18}" fill="#6f7c92"/><g transform="translate(${PFX},${PRY})">${I.flashlight(true)}</g>`;
+    s+=`<rect x="${PPX-20}" y="${PPY+52}" width="40" height="${TB-PPY-52}" fill="#6b4222"/>`;
+    const ex=T?T.p1[0]:PPX-60,ey=T?T.p1[1]:PRY;
+    s+=`<line x1="${x0}" y1="${PRY}" x2="${ex}" y2="${ey}" stroke="#fff" stroke-width="12" opacity=".3" filter="url(#${id}f)"/><line x1="${x0}" y1="${PRY}" x2="${ex}" y2="${ey}" stroke="#fff" stroke-width="6" stroke-linecap="round"/>`;
+    if(rev&&T){
+      tr.forEach((t,i)=>{if(!t.ok)return;
+        s+=`<line x1="${t.p1[0]}" y1="${t.p1[1]}" x2="${t.p2[0]}" y2="${t.p2[1]}" stroke="${COLS[i][1]}" stroke-width="3" opacity=".8"/>`+
+           `<line x1="${t.p2[0]}" y1="${t.p2[1]}" x2="${PSX}" y2="${t.y}" stroke="${COLS[i][1]}" stroke-width="4" opacity=".92" stroke-linecap="round"/>`;});
+      s+=`<text class="lbl g" x="548" y="138">Spektrum warna</text>`;
+    }else s+=`<text class="lbl" x="470" y="150" opacity=".7">Cahaya setelah prisma: belum diuji</text>`;
+    s+=`<g data-prism="1" style="${inter?'cursor:grab;touch-action:none':''}" transform="translate(${PPX},${PPY}) rotate(${phi}) scale(${PSC})">${I.prism()}</g>`;
+    if(inter){
+      const hr=PSC*60+26,hx=PPX-hr*Math.sin(phi*D),hy=PPY+hr*Math.cos(phi*D);
+      s+=`<circle cx="${PPX}" cy="${PPY}" r="${hr}" fill="none" stroke="#ffd166" stroke-opacity=".35" stroke-dasharray="4 6" pointer-events="none"/>`+
+         `<g data-prism="1" style="cursor:grab;touch-action:none"><circle cx="${hx}" cy="${hy}" r="14" fill="#ffd166" stroke="#8a5d00" stroke-width="1.5"/><text x="${hx}" y="${hy+6}" text-anchor="middle" font-size="18" font-weight="700" fill="#3a2800" pointer-events="none">↻</text></g>`;
+    }
+    s+=`<text class="lbl" x="${PFX-62}" y="344" style="fill:#fff6dd">Senter</text><text class="lbl" x="${PPX}" y="${TB+24}" text-anchor="middle" style="fill:#fff6dd">Prisma kaca${inter?' (putar aku!)':''}</text><text class="lbl" x="${PSX+13}" y="${PSY-12}" text-anchor="middle">Layar</text><text class="lbl" x="${PFX+60}" y="${PRY-18}">Cahaya putih</text>`;
+    svg.innerHTML=s;
+  }
+
+  function drawTerjun(){
+    const m=st.mist,sun=!!st.sun;
+    let s=`<defs><linearGradient id="${id}s" x1="0" y1="0" x2="0" y2="1">${sun?'<stop offset="0" stop-color="#6ec6ff"/><stop offset="1" stop-color="#d8f1ff"/>':'<stop offset="0" stop-color="#8a96a6"/><stop offset="1" stop-color="#c5ccd6"/>'}</linearGradient>
+    <linearGradient id="${id}wf" x1="0" x2="1"><stop offset="0" stop-color="#bfe6ff"/><stop offset=".5" stop-color="#fff"/><stop offset="1" stop-color="#bfe6ff"/></linearGradient>
+    <clipPath id="${id}cl"><rect x="0" y="0" width="${W}" height="330"/></clipPath></defs><rect width="${W}" height="380" fill="url(#${id}s)"/>`;
+    if(sun)s+=`<g transform="translate(70,70)">${I.sun(32)}</g><line x1="104" y1="96" x2="520" y2="300" stroke="#fff" stroke-width="3" stroke-dasharray="8 8" opacity=".9"/><text class="lbl" x="300" y="232" style="fill:#234" transform="rotate(26 300 232)">sinar matahari</text>`;
+    else s+=`<g transform="translate(80,70)">${I.cloud(1.5)}</g><g transform="translate(220,50)">${I.cloud(1.3)}</g><g transform="translate(350,85)">${I.cloud(1.2)}</g>`;
+    s+=`<rect x="0" y="330" width="380" height="50" fill="#6fbf5a"/><polygon points="430,120 500,120 500,330 390,330" fill="#7a6a58"/><polygon points="540,120 630,120 660,330 540,330" fill="#7a6a58"/>
+    <rect x="380" y="330" width="${W-380}" height="50" fill="#4da3e8"/><rect x="500" y="120" width="40" height="210" fill="url(#${id}wf)"/>`;
+    const n=Math.round(PARTS.length*m/100);
+    for(let i=0;i<n;i++){const p=PARTS[i];s+=`<circle cx="${520+p.dx}" cy="${320+p.dy}" r="${p.r}" fill="#fff" opacity=".75"/>`;}
+    if(rev&&sun&&m>0){
+      s+=`<g clip-path="url(#${id}cl)" opacity="${Math.min(.88,m/100*.95+.1)}">`+COLS.map((c,i)=>{const r=215-i*10;return `<path d="M${470-r} 335A${r} ${r} 0 0 1 ${470+r} 335" fill="none" stroke="${c[1]}" stroke-width="10"/>`;}).join('')+`</g>`;
+      s+=`<circle cx="330" cy="60" r="28" fill="rgba(120,190,255,.55)" stroke="#fff" stroke-width="2"/><line x1="265" y1="35" x2="305" y2="52" stroke="#fff" stroke-width="4"/>`+COLS.map((c,i)=>{const t=(95+i*6)*D;return `<line x1="340" y1="84" x2="${340+52*Math.cos(t)}" y2="${84+52*Math.sin(t)}" stroke="${c[1]}" stroke-width="3"/>`;}).join('')+`<text class="lbl" x="330" y="156" text-anchor="middle" style="fill:#123">Tetesan air kecil = prisma mini</text>`;
+    }
+    s+=`<text x="120" y="332" font-size="56" text-anchor="middle">🧒</text><text class="lbl" x="120" y="352" text-anchor="middle" style="fill:#123">Kamu</text><text class="lbl" x="520" y="108" text-anchor="middle" style="fill:#123">Air terjun</text>`;
+    if(sun)s+=`<text class="lbl" x="130" y="24" style="fill:#123">Matahari di belakangmu</text>`;
+    if(!rev)s+=`<rect x="250" y="190" width="240" height="30" rx="8" fill="#0f1c38" opacity=".7"/><text class="lbl" x="370" y="210" text-anchor="middle">Pelangi belum diuji</text>`;
+    svg.innerHTML=s;
+  }
+    function draw(){st.mode==='terjun'?drawTerjun():drawPrisma();}
+  const chips=(arr,cur,attr)=>arr.map(a=>`<button class="chip ${String(a[0])===String(cur)?'on':''}" data-${attr}="${a[0]}">${a[1]}</button>`).join('');
+  function buildCtl(){
+    if(!inter)return;
+    let h=`<div style="display:flex;gap:8px;flex-wrap:wrap;width:100%">${chips([['prisma','🔺 Prisma'],['terjun','💦 Pelangi di air terjun']],st.mode,'mode')}</div>`;
+    if(st.mode==='prisma')h+=`<label>Putar prisma <input type="range" min="${-RMAX}" max="${RMAX}" step="1" value="${st.rot}" id="${id}a"></label><div style="display:flex;gap:8px;flex-wrap:wrap;width:100%"><button class="chip" data-rot="-2">↺ Putar ke kiri</button><button class="chip" data-rot="2">↻ Putar ke kanan</button><button class="chip" data-rot="0">Posisi awal</button></div><p class="small" style="margin:0">Kamu juga bisa menyeret prisma atau gagang kuning (↻) untuk memutarnya.</p>`;
+    else h+=`<div style="display:flex;gap:8px;flex-wrap:wrap;width:100%">${chips([['1','☀️ Matahari terik'],['0','☁️ Mendung']],st.sun,'sun')}</div><label>Banyak percikan air <input type="range" min="0" max="100" value="${st.mist}" id="${id}m"></label>`;
+    ctl.innerHTML=h;
+    const ch=()=>{draw();o.onChange&&o.onChange();};
+    ctl.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{st.mode=b.dataset.mode;rev=false;buildCtl();draw();o.onChange&&o.onChange();});
+    ctl.querySelectorAll('[data-sun]').forEach(b=>b.onclick=()=>{st.sun=+b.dataset.sun;buildCtl();ch();});
+    const a=ctl.querySelector('#'+id+'a');if(a)a.oninput=()=>{st.rot=+a.value;ch();};
+    ctl.querySelectorAll('[data-rot]').forEach(b=>b.onclick=()=>{const v=+b.dataset.rot;st.rot=C(v===0?0:st.rot+v,-RMAX,RMAX);const s2=ctl.querySelector('#'+id+'a');if(s2)s2.value=st.rot;ch();});
+    const m=ctl.querySelector('#'+id+'m');if(m)m.oninput=()=>{st.mist=+m.value;ch();};
+  }
+  if(inter){
+    let drag=null;
+    const angAt=e=>{const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const q=p.matrixTransform(svg.getScreenCTM().inverse());return Math.atan2(q.y-PPY,q.x-PPX)*180/Math.PI;};
+    const onPrism=e=>st.mode==='prisma'&&e.target.closest&&e.target.closest('[data-prism]');
+    svg.addEventListener('touchstart',e=>{if(onPrism(e))e.preventDefault();},{passive:false});
+    svg.addEventListener('pointerdown',e=>{if(!onPrism(e))return;e.preventDefault();svg.setPointerCapture(e.pointerId);drag={a:angAt(e),r:st.rot};});
+    svg.addEventListener('pointermove',e=>{
+      if(!drag)return;
+      let da=angAt(e)-drag.a;da=((da+540)%360)-180;
+      st.rot=C(Math.round((drag.r+da)*2)/2,-RMAX,RMAX);
+      const sl=ctl.querySelector('#'+id+'a');if(sl)sl.value=st.rot;
+      draw();o.onChange&&o.onChange();
+    });
+    const end=()=>{drag=null;};
+    svg.addEventListener('pointerup',end);svg.addEventListener('pointercancel',end);
+  }
+  buildCtl();draw();
+  return {
+    setState(s){st=Object.assign(DEF(),s);buildCtl();draw();},getState(){return st;},
+    reset(){st=DEF();rev=false;buildCtl();draw();},
+    reveal(b){rev=b;draw();},
+    predictSpec(){
+      return st.mode==='terjun'
+       ?{q:'Prediksimu: apakah pelangi akan muncul di air terjun?',opts:[['pelangi','Ya, pelangi muncul'],['tidak','Tidak, pelangi tidak muncul']]}
+       :{q:'Prediksimu: cahaya putih setelah melewati prisma akan …',opts:[['tujuh','Terurai menjadi banyak warna'],['putih','Tetap putih'],['satu','Menjadi satu warna saja']]};
+    },
+    test(){
+      rev=true;draw();
+      if(st.mode==='terjun'){
+        const ok=st.sun&&st.mist>0;
+        return {id:'terjun-'+st.sun,key:ok?'pelangi':'tidak',text:!st.sun?'Mendung: tidak ada sinar matahari, jadi cahaya tidak diuraikan dan pelangi tidak muncul.':st.mist===0?'Belum ada percikan air, jadi belum ada pelangi.':'Sinar matahari mengenai percikan air dan diuraikan menjadi 7 warna. Itulah pelangi!',
+          cells:['Air terjun',(st.sun?'Matahari terik':'Mendung')+', percikan '+st.mist+'%',ok?'Pelangi muncul':'Tidak ada pelangi']};
+      }
+      return {id:'prisma',key:'tujuh',text:'Prisma menguraikan cahaya putih menjadi 7 warna: merah, jingga, kuning, hijau, biru, nila, ungu. Coba putar prisma: pita warna di layar bergeser naik-turun, tetapi cahaya tetap terurai dan urutan warnanya sama (merah di atas, ungu di bawah).',cells:['Cahaya putih + prisma','Prisma diputar '+(st.rot>0?'+':'')+st.rot+'° dari posisi awal','Terurai menjadi 7 warna']};
+    }
+  };
+}
+
+const heroArt=`<svg viewBox="0 0 400 300"><defs><clipPath id="hc"><rect width="400" height="250"/></clipPath></defs><g clip-path="url(#hc)">`+COLS.map((c,i)=>{const r=170-i*12;return `<path d="M${200-r} 260A${r} ${r} 0 0 1 ${200+r} 260" fill="none" stroke="${c[1]}" stroke-width="12" opacity=".9"/>`;}).join('')+`</g><g transform="translate(70,60)">${I.sun(24)}</g></svg>`;
+const PP=[['tujuh','Terurai menjadi banyak warna'],['putih','Tetap putih'],['satu','Menjadi satu warna saja']];
+const RP=[['pelangi','Ya, pelangi muncul'],['tidak','Tidak, pelangi tidak muncul']];
+
+LabKit.create({
+  key:'lab5',brand:'Misi Pemburu Pelangi',kicker:'Petualangan IPA · Kelas V',title:'Misi Pemburu Pelangi',
+  story:'Pelangi muncul di dekat air terjun, tetapi menghilang saat mendung! Selidiki bagaimana cahaya putih bisa menjadi banyak warna.',heroArt:heroArt,
+  lab:{kicker:'Modul A · Eksperimen virtual',title:'Laboratorium penguraian cahaya',
+    desc:'Coba dua percobaan: cahaya putih melewati prisma yang bisa kamu putar, dan sinar matahari mengenai percikan air terjun.',
+    tip:'Tip: seret prisma atau gagang kuning (↻) untuk memutarnya dan lihat pita warna di layar bergeser. Lalu ganti ke “Pelangi di air terjun”, coba cuaca terik dan mendung, dan ubah banyak percikan air.',
+    predict:{q:'Prediksimu: cahaya putih setelah melewati prisma akan …',opts:PP},
+    columns:['Percobaan','Kondisi','Hasil pengamatan'],
+    report:[{"q": "Apa yang terjadi pada cahaya putih setelah melewati prisma?", "kw": ["warna", "terurai", "diuraikan", "spektrum", "pelangi"], "need": 1, "model": "Cahaya putih diuraikan menjadi banyak warna (spektrum)."}, {"q": "Sebutkan urutan warna yang muncul dari atas ke bawah.", "kw": ["merah", "jingga", "kuning", "hijau", "biru", "nila", "ungu"], "need": 5, "model": "Merah, jingga, kuning, hijau, biru, nila, ungu (mejikuhibiniu).", "alt": ["mejikuhibiniu", "me-ji-ku-hi-bi-ni-u"], "strict": true}, {"q": "Sebutkan satu syarat supaya pelangi muncul di air terjun.", "kw": ["matahari", "air", "belakang", "percikan", "butiran"], "need": 1, "model": "Salah satu syarat sudah cukup: ada sinar matahari, ada butiran/percikan air, atau pengamat membelakangi matahari."}],minObs:0},
+  createScene:scene,
+  missions:[
+   {id:'m1',poin:["[inti] Cahaya putih terurai (diuraikan) menjadi banyak warna/spektrum seperti pelangi","[pendukung] Cahaya putih sebenarnya tersusun dari banyak warna"],essay:'Apa yang terjadi pada cahaya putih setelah melewati prisma? Jelaskan.',title:'Prisma Ajaib',short:'Cahaya putih lewat prisma.',badge:'Penguji Prisma',skills:['Memprediksi hasil','Menggunakan bukti'],
+    story:'Seberkas cahaya putih dari senter melewati prisma kaca.',preset:{mode:'prisma',rot:0},
+    pQ:'Prediksimu: cahaya putih setelah prisma …',pOpts:PP,
+    q:'Apa yang kamu temukan tentang cahaya putih?',
+    choices:[['Cahaya putih terurai menjadi banyak warna (spektrum).',true],['Cahaya putih tetap putih.',false,'Lihat layar: ada banyak warna.'],['Prisma menciptakan warna baru dari warna prisma.',false,'Warna berasal dari cahaya putih yang diuraikan, bukan dari prisma.'],['Cahaya putih berhenti di prisma.',false,'Cahaya melewati prisma dan sampai di layar.']],
+    reasonQ:'Tulis alasanmu:',kw:['warna','terurai','diuraikan','penguraian','spektrum'],need:1,
+    hints:['Lihat layar di sebelah kanan.','Berapa warna yang kamu hitung?','Cahaya putih terdiri dari … warna.'],
+    explain:'Cahaya putih terdiri dari banyak warna. Prisma menguraikannya menjadi spektrum warna.'},
+   {id:'m2',poin:["[inti] Urutan dari atas ke bawah: merah, jingga, kuning, hijau, biru, nila, ungu (boleh ditulis mejikuhibiniu)"],essay:'Sebutkan urutan warna di layar dari atas ke bawah.',title:'Urutan Warna',short:'Urutkan warna spektrum.',badge:'Detektif Spektrum',skills:['Memilih informasi relevan','Menggunakan bukti'],
+    story:'Warna-warna di layar tersusun rapi dari atas ke bawah. Kenali urutannya (me-ji-ku-hi-bi-ni-u).',preset:{mode:'prisma',rot:0},
+    pQ:'Prediksimu: cahaya putih setelah prisma …',pOpts:PP,
+    q:'Urutan warna dari atas ke bawah pada layar adalah …',
+    choices:[['Merah, jingga, kuning, hijau, biru, nila, ungu',true],['Ungu, nila, biru, hijau, kuning, jingga, merah',false,'Urutannya terbalik. Merah berada di atas.'],['Merah, kuning, jingga, hijau, nila, biru, ungu',false,'Ada warna yang tertukar. Ingat me-ji-ku-hi-bi-ni-u.'],['Hijau, merah, ungu, kuning, biru, jingga, nila',false,'Warna tidak acak; urutannya selalu sama.']],
+    reasonQ:'Sebutkan warna paling atas dan paling bawah:',kw:['merah','ungu','mejikuhibiniu'],need:1,
+    hints:['Lihat bidang warna di layar dari atas.','Ingat singkatan mejikuhibiniu.','Warna paling atas: merah. Paling bawah: ungu.'],
+    explain:'Urutan spektrum: merah, jingga, kuning, hijau, biru, nila, ungu (mejikuhibiniu).'},
+   {id:'m3',poin:["[inti] Sinar matahari diuraikan menjadi banyak warna oleh butiran/percikan air yang bekerja seperti prisma kecil"],title:'Pelangi di Air Terjun',short:'Sinar matahari + percikan air.',badge:'Pengamat Pelangi',skills:['Hubungan variabel dan hasil','Mengidentifikasi masalah'],
+    story:'Matahari bersinar terik dan percikan air terjun beterbangan. Apa yang terjadi?',preset:{mode:'terjun',sun:1,mist:70},
+    pQ:'Prediksimu: apakah pelangi akan muncul?',pOpts:RP,
+    q:'Bagaimana pelangi terbentuk di air terjun?',
+    choices:[['Sinar matahari diuraikan menjadi banyak warna oleh butiran air.',true],['Air terjun mengecat udara dengan warna.',false,'Warna berasal dari cahaya matahari yang diuraikan.'],['Batu di sekitar air terjun berwarna-warni.',false,'Batunya abu-abu kecokelatan; warna pelangi dari cahaya.'],['Pelangi muncul tanpa matahari.',false,'Tanpa matahari tidak ada pelangi.']],
+    reasonQ:'Tulis alasanmu:',kw:['butiran','tetesan','percikan','air','diuraikan','terurai','warna'],need:2,
+    hints:['Lihat tetesan kecil di sudut gambar.','Tetesan air bekerja seperti …?','Matahari + air → cahaya diuraikan.'],
+    explain:'Butiran air bekerja seperti prisma kecil yang menguraikan sinar matahari menjadi warna-warna pelangi.'},
+   {id:'m4',poin:["[inti] Saat mendung tidak ada sinar matahari yang cukup/langsung untuk diuraikan sehingga pelangi tidak muncul"],title:'Hari Mendung',short:'Mengapa pelangi hilang?',badge:'Peneliti Cuaca',skills:['Hubungan variabel dan hasil','Menemukan kesalahan percobaan'],
+    story:'Percikan air masih banyak, tetapi langit tiba-tiba mendung.',preset:{mode:'terjun',sun:0,mist:70},
+    pQ:'Prediksimu: apakah pelangi akan muncul?',pOpts:RP,
+    q:'Mengapa pelangi tidak muncul?',
+    choices:[['Tidak ada sinar matahari yang dapat diuraikan.',true],['Air terjun berhenti mengalir.',false,'Air masih mengalir; masalahnya ada pada cahaya.'],['Anak itu terlalu pendek.',false,'Tinggi badan bukan penyebab.'],['Pelangi hanya muncul malam hari.',false,'Pelangi butuh sinar matahari.']],
+    reasonQ:'Tulis alasanmu:',kw:['matahari','cahaya','mendung','sinar'],need:1,
+    hints:['Bandingkan dengan percobaan sebelumnya. Apa yang hilang?','Lihat langitnya.','Tanpa cahaya matahari, tidak ada yang diuraikan.'],
+    explain:'Pelangi membutuhkan sinar matahari. Saat mendung, tidak ada cahaya yang diuraikan sehingga pelangi tidak muncul.'},
+   {id:'m5',poin:["[inti] Syarat pelangi: ada sinar matahari dan ada butiran/percikan air di udara","[pendukung] Pengamat berdiri membelakangi matahari"],essay:'Sebutkan syarat supaya pelangi bisa muncul, dengan kalimatmu sendiri.',title:'Selamatkan Laboratorium',short:'Syarat terjadinya pelangi.',badge:'Juara Laboratorium',skills:['Menggunakan bukti','Memilih informasi relevan','Memprediksi hasil'],
+    story:'Kamu sudah meneliti prisma, air terjun, dan hari mendung. Rangkum syarat terjadinya pelangi.',preset:{mode:'terjun',sun:1,mist:40},
+    pQ:'Prediksimu: apakah pelangi akan muncul?',pOpts:RP,
+    q:'Syarat pelangi muncul adalah …',
+    choices:[['Ada sinar matahari, ada butiran air, dan matahari berada di belakang pengamat.',true],['Ada awan hitam dan tidak ada matahari.',false,'Tanpa matahari tidak ada pelangi.'],['Ada batu berwarna dan air tenang.',false,'Pelangi tidak berasal dari batu.'],['Ada senter saja.',false,'Sinar matahari dan butiran air diperlukan.']],
+    reasonQ:'Tulis syaratnya dengan kalimatmu sendiri:',kw:['matahari','air','belakang','butiran','tetesan'],need:2,
+    hints:['Ingat dua percobaan: terik dan mendung.','Apa yang menguraikan cahaya matahari?','Posisi matahari terhadap pengamat: di … pengamat.'],
+    explain:'Pelangi muncul bila ada sinar matahari, butiran air di udara, dan pengamat membelakangi matahari.'}
+  ]
+});
+})();
+</script></body></html>

@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lab 3 – Cahaya Dipantulkan</title><link rel="stylesheet" href="lab-core.css"></head>
+<body><div id="app"></div>
+<script src="ai-config.js"></script><script src="lab-core.js"></script><script src="lab-icons.js"></script>
+<script>
+(function(){
+const L=LabKit,I=L.icons;
+const W=760,TB=330,AX=250,MX=420,OH=64,F=90,HALF=80;
+const MIR={
+  datar:{n:'Cermin datar',f:0,icon:'wardrobe',ex:'Cermin kamar'},
+  cekung:{n:'Cermin cekung',f:F,icon:'spoon',ex:'Sendok (sisi dalam)'},
+  cembung:{n:'Cermin cembung',f:-F,icon:'spion',ex:'Kaca spion motor'}
+};
+const OBJ={boneka:['🧸','Boneka'],apel:['🍎','Apel'],bunga:['🌷','Bunga'],wajah:['🙂','Wajah']};
+const DEF=()=>({mode:'bayangan',mirror:'datar',obj:'boneka',d:200,ang:40,surface:'cermin'});
+const jarak=d=>d<80?'sangat dekat':d<150?'dekat':d<230?'sedang':'jauh';
+
+function calcBay(st){
+  const m=MIR[st.mirror],d=st.d;
+  if(st.mirror==='datar')return {di:-d,mag:1,none:false};
+  if(m.f>0&&Math.abs(d-m.f)<8)return {di:0,mag:0,none:true};
+  const di=d*m.f/(d-m.f);return {di:di,mag:-di/d,none:false};
+}
+function keyBay(r){if(r.none)return 'tidak-jelas';if(r.mag<0)return 'terbalik';const s=Math.abs(r.mag);return s>1.08?'tegak-besar':s<.92?'tegak-kecil':'tegak-sama';}
+function descBay(r,ob){
+  if(r.none)return 'Benda tepat di titik fokus cermin cekung, jadi bayangan tidak terbentuk jelas.';
+  const s=Math.abs(r.mag),sz=s>1.08?'lebih besar':s<.92?'lebih kecil':'sama besar';
+  return 'Bayangan '+ob.toLowerCase()+' '+(r.mag>0?'tegak':'terbalik')+', '+sz+' dari bendanya, '+(r.di<0?'terlihat di dalam cermin.':'muncul di depan cermin.');
+}
+
+function mirrorSvg(kind){
+  if(kind==='datar')return `<defs><linearGradient id="mgd" x1="0" x2="1"><stop offset="0" stop-color="#eaf5ff"/><stop offset="1" stop-color="#a9c6e3"/></linearGradient></defs><rect x="${MX+6}" y="${AX-HALF}" width="12" height="${HALF*2}" fill="#8a5a33"/><rect x="${MX-6}" y="${AX-HALF}" width="12" height="${HALF*2}" fill="url(#mgd)" stroke="#cfe0f2"/><rect x="${MX-30}" y="${AX+HALF}" width="66" height="${TB-AX-HALF}" fill="#7a4d27"/>`;
+  const R=2*F,a=Math.asin(HALF/R),sn=R*Math.sin(a),cs=R*Math.cos(a);
+  if(kind==='cekung'){const cx=MX-R;const p=(r)=>{const c=r*Math.cos(a),s=r*Math.sin(a);return `M${cx+c} ${AX-s}A${r} ${r} 0 0 1 ${cx+c} ${AX+s}`;};
+    return `<path d="${p(R+10)}" stroke="#8a5a33" stroke-width="10" fill="none"/><path d="${p(R)}" stroke="#e7f2fc" stroke-width="9" fill="none"/><rect x="${MX-30}" y="${AX+HALF}" width="66" height="${TB-AX-HALF}" fill="#7a4d27"/>`;}
+  const cx=MX+R;const p=(r)=>{const c=r*Math.cos(a),s=r*Math.sin(a);return `M${cx-c} ${AX-s}A${r} ${r} 0 0 0 ${cx-c} ${AX+s}`;};
+  return `<path d="${p(R-10)}" stroke="#8a5a33" stroke-width="10" fill="none" transform="translate(10,0)"/><path d="${p(R)}" stroke="#e7f2fc" stroke-width="9" fill="none"/><rect x="${MX-30}" y="${AX+HALF}" width="66" height="${TB-AX-HALF}" fill="#7a4d27"/>`;
+}
+
+function scene(host,o){
+  const inter=o.interactive,id=L.uid('s3');
+  host.innerHTML=`<svg viewBox="0 0 ${W} 380" role="img" aria-label="Percobaan cermin"></svg>${inter?'<div class="ctl" id="'+id+'c"></div>':''}`;
+  const svg=host.querySelector('svg'),ctl=host.querySelector('.ctl');
+  let st=DEF(),rev=false;
+
+  function bg(){return `<defs><linearGradient id="${id}w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#13213f"/><stop offset="1" stop-color="#1f3a63"/></linearGradient>
+  <filter id="${id}f" x="-10%" y="-300%" width="120%" height="700%"><feGaussianBlur stdDeviation="4"/></filter></defs><rect width="${W}" height="${TB}" fill="url(#${id}w)"/>
+  <path d="M0 90H760M0 170H760M0 250H760M190 0V330M380 0V330M570 0V330" stroke="#8fb4ff" stroke-opacity=".06"/>`+I.table(W,TB);}
+
+  function drawBay(){
+    const m=MIR[st.mirror],ob=OBJ[st.obj],xo=MX-st.d,r=calcBay(st);
+    let s=bg()+`<path d="M20 ${AX}H740" stroke="#fff" stroke-opacity=".2" stroke-dasharray="6 8"/>`;
+    s+=`<rect x="${xo-7}" y="${AX+2}" width="14" height="${TB-AX-2}" fill="#a9763f"/><rect x="${xo-27}" y="${AX}" width="54" height="8" rx="3" fill="#c8924f"/>`;
+    s+=mirrorSvg(st.mirror);
+    s+=`<text x="${xo}" y="${AX}" font-size="${OH}" text-anchor="middle">${ob[0]}</text><text class="lbl" x="${xo}" y="${TB+24}" text-anchor="middle" style="fill:#fff6dd">Benda</text>`;
+    s+=`<text class="lbl g" x="${MX}" y="40" text-anchor="middle">${m.n}</text>`;
+    s+=`<g transform="translate(690,80)">${I[m.icon]()}</g><text class="lbl" x="690" y="156" text-anchor="middle">${m.ex}</text>`;
+    if(rev&&!r.none){
+      const h=Math.min(Math.abs(r.mag)*OH,170),flip=r.mag<0;
+      const xi=Math.max(40,Math.min(560,MX-r.di));
+      s+=`<g transform="translate(${xi},${AX}) scale(1,${flip?-1:1})" opacity="${r.di<0?.7:1}"><text x="0" y="0" font-size="${h}" text-anchor="middle">${ob[0]}</text></g>`;
+      const ly=flip?Math.min(AX+h+20,TB+24):AX-h-8;
+      s+=`<text class="lbl g" x="${xi}" y="${ly}" text-anchor="middle">Bayangan</text>`;
+    }else if(!rev)s+=`<text class="lbl" x="${MX+60}" y="${AX-110}" opacity=".7">Bayangan belum diuji</text>`;
+    else s+=`<text class="lbl g" x="${MX-80}" y="${AX-110}" text-anchor="middle">Bayangan tidak jelas</text>`;
+    svg.innerHTML=s;
+  }
+
+  function drawSinar(){
+    const th=st.ang*Math.PI/180,P={x:380,y:300},sn=Math.sin(th),cs=Math.cos(th),kasar=st.surface==='kasar';
+    const dist=230,Fx=P.x-dist*sn,Fy=P.y-dist*cs,rot=Math.atan2(P.y-Fy,P.x-Fx)*180/Math.PI;
+    let s=bg().replace(/<path d="M0 90[^>]*>/,'');
+    // permukaan
+    if(!kasar)s+=`<defs><linearGradient id="${id}m" x1="0" x2="1"><stop offset="0" stop-color="#eaf5ff"/><stop offset="1" stop-color="#a9c6e3"/></linearGradient></defs><rect x="240" y="304" width="280" height="14" fill="#8a5a33"/><rect x="246" y="298" width="268" height="8" fill="url(#${id}m)" stroke="#cfe0f2"/>`;
+    else s+=`<rect x="240" y="306" width="280" height="12" fill="#e9e6dc"/><path d="M246 304q8-5 16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0" stroke="#bdb8a8" stroke-width="3" fill="#f3f1e8"/>`;
+    s+=`<text class="lbl" x="${P.x}" y="${TB+24}" text-anchor="middle" style="fill:#fff6dd">${kasar?'Kertas HVS (kasar)':'Cermin datar'}</text>`;
+    // normal
+    s+=`<path d="M${P.x} ${P.y-4}V90" stroke="#fff" stroke-opacity=".6" stroke-width="2" stroke-dasharray="7 7"/><text class="lbl" x="${P.x+8}" y="100">Garis normal</text>`;
+    // senter
+    s+=`<g transform="translate(${Fx},${Fy}) rotate(${rot})">${I.flashlight(true)}</g>`;
+    if(inter)s+=L.grip(Fx-6,Fy-40,'x').replace('<g class="grip"','<g class="grip" style="display:none"');
+    if(rev){
+      s+=`<line x1="${Fx}" y1="${Fy}" x2="${P.x}" y2="${P.y}" stroke="#ffd23f" stroke-width="12" opacity=".35" filter="url(#${id}f)"/><line x1="${Fx}" y1="${Fy}" x2="${P.x}" y2="${P.y}" stroke="#ffe27a" stroke-width="6" stroke-linecap="round"/>`;
+      if(!kasar){
+        const Ex=P.x+250*sn,Ey=P.y-250*cs;
+        s+=`<line x1="${P.x}" y1="${P.y}" x2="${Ex}" y2="${Ey}" stroke="#ffd23f" stroke-width="12" opacity=".35" filter="url(#${id}f)"/><line x1="${P.x}" y1="${P.y}" x2="${Ex}" y2="${Ey}" stroke="#ffe27a" stroke-width="6" stroke-linecap="round"/>`;
+        const r=70,ax=P.x-r*sn,ay=P.y-r*cs,bx=P.x+r*sn,by=P.y-r*cs;
+        s+=`<path d="M${P.x} ${P.y-r}A${r} ${r} 0 0 0 ${ax} ${ay}" stroke="#5ad1b8" stroke-width="4" fill="none"/><path d="M${P.x} ${P.y-r}A${r} ${r} 0 0 1 ${bx} ${by}" stroke="#ff9f6e" stroke-width="4" fill="none"/>`;
+        s+=`<text class="lbl" x="${P.x-96*Math.sin(th/2)-34}" y="${P.y-96*Math.cos(th/2)}" style="fill:#5ad1b8">datang ${st.ang}°</text><text class="lbl" x="${P.x+96*Math.sin(th/2)+4}" y="${P.y-96*Math.cos(th/2)}" style="fill:#ff9f6e">pantul ${st.ang}°</text>`;
+        s+=`<text class="lbl" x="${Ex+6}" y="${Ey}" >Sinar pantul</text>`;
+      }else{
+        [-.2,.45,.9,1.3,1.75].forEach((a,i)=>{const t=a*0.9+.1;const Ex=P.x+210*Math.sin(t),Ey=P.y-210*Math.cos(t);s+=`<line x1="${P.x}" y1="${P.y}" x2="${Ex}" y2="${Ey}" stroke="#ffd23f" stroke-width="3" opacity=".7" stroke-linecap="round"/>`;});
+        [-.5,-.2].forEach(a=>{const Ex=P.x+200*Math.sin(a),Ey=P.y-200*Math.cos(a);s+=`<line x1="${P.x}" y1="${P.y}" x2="${Ex}" y2="${Ey}" stroke="#ffd23f" stroke-width="3" opacity=".6" stroke-linecap="round"/>`;});
+        s+=`<text class="lbl g" x="${P.x+130}" y="${P.y-190}">Pantulan menyebar (baur)</text>`;
+      }
+    }else s+=`<text class="lbl" x="${P.x+70}" y="${P.y-70}" opacity=".7">Sinar belum diuji</text>`;
+    s+=`<text class="lbl" x="600" y="40">Sudut datang: ${st.ang}°</text>`;
+    svg.innerHTML=s;
+  }
+
+  function draw(){st.mode==='sinar'?drawSinar():drawBay();}
+  function chips(arr,cur,attr){return arr.map(a=>`<button class="chip ${a[0]===cur?'on':''}" data-${attr}="${a[0]}">${a[1]}</button>`).join('');}
+  function buildCtl(){
+    if(!inter)return;
+    let h=`<div style="display:flex;gap:8px;flex-wrap:wrap;width:100%">${chips([['bayangan','🪞 Bayangan benda'],['sinar','🔦 Sinar senter']],st.mode,'mode')}</div>`;
+    if(st.mode==='bayangan')h+=`<div style="display:flex;gap:8px;flex-wrap:wrap;width:100%">${chips(Object.keys(OBJ).map(k=>[k,OBJ[k][0]+' '+OBJ[k][1]]),st.obj,'obj')}</div><div style="display:flex;gap:8px;flex-wrap:wrap;width:100%">${chips(Object.keys(MIR).map(k=>[k,MIR[k].n]),st.mirror,'mir')}</div><label>Jarak benda ke cermin <input type="range" min="40" max="300" step="5" value="${st.d}" id="${id}d"></label>`;
+    else h+=`<div style="display:flex;gap:8px;flex-wrap:wrap;width:100%">${chips([['cermin','Cermin datar'],['kasar','Kertas HVS kasar']],st.surface,'surf')}</div><label>Sudut datang <input type="range" min="20" max="70" step="5" value="${st.ang}" id="${id}a"></label>`;
+    ctl.innerHTML=h;
+    const ch=()=>{draw();o.onChange&&o.onChange();};
+    ctl.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{st.mode=b.dataset.mode;rev=false;buildCtl();draw();o.onChange&&o.onChange();});
+    ctl.querySelectorAll('[data-obj]').forEach(b=>b.onclick=()=>{st.obj=b.dataset.obj;buildCtl();ch();});
+    ctl.querySelectorAll('[data-mir]').forEach(b=>b.onclick=()=>{st.mirror=b.dataset.mir;buildCtl();ch();});
+    ctl.querySelectorAll('[data-surf]').forEach(b=>b.onclick=()=>{st.surface=b.dataset.surf;buildCtl();ch();});
+    const d=ctl.querySelector('#'+id+'d');if(d)d.oninput=()=>{st.d=+d.value;ch();};
+    const a=ctl.querySelector('#'+id+'a');if(a)a.oninput=()=>{st.ang=+a.value;ch();};
+  }
+  buildCtl();draw();
+  return {
+    setState(s){st=Object.assign(DEF(),s);buildCtl();draw();},getState(){return st;},
+    reset(){st=DEF();rev=false;buildCtl();draw();},
+    reveal(b){rev=b;draw();},
+    predictSpec(){
+      return st.mode==='sinar'
+       ?{q:'Prediksimu: bagaimana cahaya setelah mengenai permukaan ini?',opts:[['sama','Dipantulkan; sudut pantul sama dengan sudut datang'],['menyebar','Dipantulkan menyebar ke banyak arah'],['tidak','Tidak dipantulkan']]}
+       :{q:'Prediksimu: bayangan benda di cermin ini akan …',opts:[['tegak-besar','Tegak dan lebih besar'],['tegak-sama','Tegak dan sama besar'],['tegak-kecil','Tegak dan lebih kecil'],['terbalik','Terbalik'],['tidak-jelas','Tidak terbentuk jelas']]};
+    },
+    test(){
+      rev=true;draw();
+      if(st.mode==='sinar'){
+        const k=st.surface==='kasar'?'menyebar':'sama';
+        return {id:'sinar-'+st.surface,key:k,text:k==='sama'?'Cahaya dipantulkan oleh cermin. Sudut pantul sama besar dengan sudut datang ('+st.ang+'°).':'Permukaan kasar memantulkan cahaya ke banyak arah (pantulan baur), sehingga tidak terbentuk bayangan.',cells:['Sinar senter',(st.surface==='kasar'?'Kertas kasar':'Cermin datar')+', sudut datang '+st.ang+'°',k==='sama'?'Sudut pantul '+st.ang+'°':'Menyebar ke banyak arah']};
+      }
+      const r=calcBay(st);
+      return {id:'bay-'+st.obj+'-'+st.mirror,key:keyBay(r),text:descBay(r,OBJ[st.obj][1]),cells:['Bayangan '+OBJ[st.obj][1].toLowerCase(),MIR[st.mirror].n+', jarak '+jarak(st.d),descBay(r,OBJ[st.obj][1]).replace(/^Bayangan \w+ /,'').replace(/ dari bendanya.*$/,'').replace(/\.$/,'')]};
+    }
+  };
+}
+
+const heroArt=`<svg viewBox="0 0 400 300"><g transform="translate(110,150) scale(1.7)">${I.wardrobe()}</g><text x="270" y="190" font-size="80" text-anchor="middle">🧸</text><text x="85" y="190" font-size="60" text-anchor="middle" opacity=".6">🧸</text></svg>`;
+const P5=[['tegak-besar','Tegak dan lebih besar'],['tegak-sama','Tegak dan sama besar'],['tegak-kecil','Tegak dan lebih kecil'],['terbalik','Terbalik']];
+const SINAR=[['sama','Sudut pantul sama dengan sudut datang'],['menyebar','Menyebar ke banyak arah'],['tidak','Tidak dipantulkan']];
+
+LabKit.create({
+  key:'lab3',brand:'Misi Pemburu Bayangan',kicker:'Petualangan IPA · Kelas V',title:'Misi Pemburu Bayangan',
+  story:'Bayangan di dalam cermin berubah-ubah! Kadang besar, kadang kecil, kadang terbalik. Selidiki mengapa cahaya dipantulkan dengan cara berbeda-beda.',heroArt:heroArt,
+  lab:{kicker:'Modul A · Eksperimen virtual',title:'Laboratorium cermin',
+    desc:'Pilih benda dan jenis cermin, lalu geser jarak benda. Atau ganti ke “Sinar senter” untuk melihat arah cahaya yang dipantulkan.',
+    tip:'Tip: coba dekatkan dan jauhkan benda pada setiap jenis cermin.',
+    predict:{q:'Prediksimu: bayangan benda di cermin ini akan …',opts:P5},
+    columns:['Percobaan','Kondisi','Hasil pengamatan'],
+    report:[{"q": "Seperti apa bayangan di cermin datar? (Boleh menceritakan tegak/terbaliknya atau ukurannya.)", "kw": ["tegak", "sama"], "need": 1, "model": "Bayangan di cermin datar tegak dan sama besar dengan bendanya. Menyebut salah satunya sudah benar."}, {"q": "Pilih satu cermin, cekung atau cembung. Ceritakan apa yang kamu amati pada bayangannya.", "kw": ["cekung", "cembung", "besar", "kecil", "terbalik"], "need": 1, "model": "Salah satu cermin sudah cukup. Cermin cekung: benda dekat → bayangan tegak dan lebih besar (benda jauh → bayangan terbalik). Cermin cembung: bayangan tegak dan lebih kecil."}, {"q": "Pilih satu percobaan pemantulan sinar senter, pada cermin datar atau permukaan kasar. Apa yang kamu amati?", "kw": ["sama", "kasar", "menyebar", "baur"], "need": 1, "model": "Salah satu sudah cukup. Cermin datar: sudut pantul sama besar dengan sudut datang. Permukaan kasar: cahaya dipantulkan menyebar ke banyak arah (pantulan baur) sehingga tidak terbentuk bayangan."}],minObs:0},
+  createScene:scene,
+  missions:[
+   {id:'m1',poin:["[inti] Bayangan di cermin datar tegak","[inti] Bayangan sama besar dengan bendanya (tidak diperbesar/diperkecil)"],essay:'Seperti apa bayanganmu di cermin datar? Tegak atau terbalik? Lebih besar, lebih kecil, atau sama besar? Jelaskan.',title:'Cermin Kamar',short:'Bayangan di cermin datar.',badge:'Pengamat Cermin Datar',skills:['Memprediksi hasil','Menggunakan bukti'],
+    story:'Kamu bercermin di cermin kamar (cermin datar). Seperti apa bayanganmu?',preset:{mode:'bayangan',mirror:'datar',obj:'boneka',d:160},
+    pQ:'Prediksimu: bayangan boneka akan …',pOpts:P5,
+    q:'Bukti mana yang tepat tentang bayangan di cermin datar?',
+    choices:[['Cermin datar membentuk bayangan tegak dan sama besar dengan bendanya.',true],['Cermin datar membentuk bayangan terbalik.',false,'Pada cermin datar bayangan tidak terbalik. Lihat lagi hasil ujimu.'],['Cermin datar membuat bayangan jauh lebih besar.',false,'Ukuran bayangan sama dengan bendanya.'],['Cermin datar tidak membentuk bayangan.',false,'Bayangan terbentuk karena cahaya dipantulkan.']],
+    reasonQ:'Tulis alasanmu:',kw:['tegak','sama besar','sama','dipantulkan'],need:1,
+    hints:['Lihat posisi bayangan boneka.','Bandingkan ukuran boneka dan bayangannya.','Bayangannya tegak dan … besarnya.'],
+    explain:'Cermin datar memantulkan cahaya sehingga bayangan tampak tegak dan sama besar dengan bendanya.'},
+   {id:'m2',poin:["[inti] Pada cermin cekung, benda yang dekat menghasilkan bayangan tegak dan lebih besar (diperbesar)"],essay:'Benda didekatkan ke cermin cekung (sisi dalam sendok). Seperti apa bayangannya? Jelaskan.',title:'Sendok Ajaib',short:'Bayangan di sendok bagian dalam.',badge:'Penguji Cermin Cekung',skills:['Hubungan variabel dan hasil','Memprediksi hasil'],
+    story:'Sisi dalam sendok berbentuk cekung. Saat benda didekatkan, bayangannya tampak …',preset:{mode:'bayangan',mirror:'cekung',obj:'apel',d:55},
+    pQ:'Prediksimu: bayangan apel akan …',pOpts:P5,
+    q:'Apa yang kamu temukan pada cermin cekung ketika benda dekat?',
+    choices:[['Bayangan tegak dan lebih besar dari bendanya.',true],['Bayangan tegak dan lebih kecil.',false,'Pada cermin cekung dengan benda dekat, bayangan membesar.'],['Bayangan terbalik.',false,'Benda yang dekat menghasilkan bayangan tegak.'],['Tidak ada bayangan.',false,'Bayangan terbentuk dan terlihat di dalam cermin.']],
+    reasonQ:'Tulis alasanmu:',kw:['besar','cekung','dekat','tegak'],need:1,
+    hints:['Bandingkan ukuran apel dan bayangannya.','Apakah bayangan menghadap ke atas atau terbalik?','Cermin cekung membuat benda dekat tampak …'],
+    explain:'Cermin cekung memperbesar bayangan benda yang dekat. Karena itu cermin cekung dipakai sebagai cermin rias dan cermin dokter gigi.'},
+   {id:'m3',poin:["[inti] Cermin cembung membuat bayangan lebih kecil tetapi tetap tegak","[inti] Akibatnya bidang pandang lebih luas sehingga cocok untuk spion"],title:'Spion Motor',short:'Mengapa spion memakai cermin cembung?',badge:'Penguji Cermin Cembung',skills:['Mengidentifikasi masalah','Memilih informasi relevan'],
+    story:'Kaca spion motor berbentuk cembung. Pengendara bisa melihat jalan di belakangnya.',preset:{mode:'bayangan',mirror:'cembung',obj:'wajah',d:150},
+    pQ:'Prediksimu: bayangan wajah akan …',pOpts:P5,
+    q:'Mengapa spion motor memakai cermin cembung?',
+    choices:[['Cermin cembung membuat bayangan lebih kecil tetapi tegak, sehingga pandangan lebih luas.',true],['Cermin cembung membuat bayangan terbalik agar mudah dibaca.',false,'Bayangan pada cermin cembung tetap tegak.'],['Cermin cembung memperbesar bayangan agar jelas.',false,'Bayangan justru lebih kecil.'],['Cermin cembung tidak memantulkan cahaya.',false,'Semua cermin memantulkan cahaya.']],
+    reasonQ:'Tulis alasanmu:',kw:['luas','kecil','tegak','cembung'],need:1,
+    hints:['Bandingkan ukuran wajah dan bayangannya.','Bayangan yang kecil memuat lebih banyak pemandangan.','Cermin cembung → bayangan kecil, pandangan …'],
+    explain:'Cermin cembung membentuk bayangan tegak dan lebih kecil sehingga bidang pandang lebih luas. Itu cocok untuk spion.'},
+   {id:'m4',poin:["[inti] Sudut pantul sama besar dengan sudut datang (40 derajat)"],essay:'Sudut datang cahaya 40°. Berapa sudut pantulnya? Jelaskan hubungan sudut datang dan sudut pantul.',title:'Sudut Pantul',short:'Sinar senter pada cermin datar.',badge:'Pengukur Sudut Pantul',skills:['Hubungan variabel dan hasil','Menggunakan bukti'],
+    story:'Senter menyinari cermin datar dengan sudut datang 40°. Berapa sudut pantulnya?',preset:{mode:'sinar',surface:'cermin',ang:40},
+    pQ:'Prediksimu: cahaya setelah mengenai cermin akan …',pOpts:SINAR,
+    q:'Hubungan sudut datang dan sudut pantul pada cermin datar adalah …',
+    choices:[['Sudut pantul sama besar dengan sudut datang.',true],['Sudut pantul selalu lebih besar.',false,'Lihat lagi angka pada gambar: sudut datang dan pantul sama.'],['Sudut pantul selalu lebih kecil.',false,'Lihat lagi angka pada gambar.'],['Cahaya menembus cermin tanpa dipantulkan.',false,'Cahaya dipantulkan.']],
+    reasonQ:'Tulis alasanmu:',kw:['sama','dipantulkan','sudut'],need:1,
+    hints:['Bandingkan angka sudut datang dan sudut pantul.','Perhatikan garis putus-putus (garis normal).','Sudut datang … sudut pantul.'],
+    explain:'Pada pemantulan, sudut datang sama besar dengan sudut pantul.'},
+   {id:'m5',poin:["[inti] Permukaan kertas kasar memantulkan cahaya ke banyak arah (pantulan baur/menyebar)","[pendukung] Karena arah pantulan acak, tidak terbentuk bayangan"],title:'Selamatkan Laboratorium',short:'Mengapa kertas tidak membentuk bayangan?',badge:'Juara Laboratorium',skills:['Menggunakan bukti','Menemukan kesalahan percobaan'],
+    story:'Cahaya mengenai kertas HVS yang permukaannya kasar. Mengapa kamu tidak bisa bercermin di kertas?',preset:{mode:'sinar',surface:'kasar',ang:40},
+    pQ:'Prediksimu: cahaya setelah mengenai kertas kasar akan …',pOpts:SINAR,
+    q:'Mengapa kertas tidak membentuk bayangan seperti cermin?',
+    choices:[['Permukaan kasar memantulkan cahaya ke banyak arah (pantulan baur).',true],['Kertas menyerap semua cahaya.',false,'Kertas tampak terang, jadi cahaya dipantulkan.'],['Kertas menembus cahaya seperti kaca.',false,'Kertas tidak bening.'],['Kertas memantulkan cahaya ke satu arah saja.',false,'Pada gambar, sinar pantul menyebar.']],
+    reasonQ:'Tulis alasanmu:',kw:['kasar','menyebar','banyak arah','baur'],need:1,
+    hints:['Bandingkan sinar pantul cermin dan kertas.','Berapa arah sinar pantul pada kertas?','Permukaan kasar memantulkan cahaya … arah.'],
+    explain:'Permukaan kasar menyebarkan cahaya ke banyak arah (pantulan baur), sehingga tidak terbentuk bayangan.'}
+  ]
+});
+})();
+</script></body></html>
